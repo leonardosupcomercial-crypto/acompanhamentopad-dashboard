@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Acompanhamento PAD - Agosto / 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy-950:#141b45;
+    --navy-900:#1c2660;
+    --navy-800:#273577;
+    --navy-700:#33449a;
+    --navy-100:#e6e9f7;
+    --navy-50:#f3f4fb;
+    --red-600:#e0071a;
+    --red-500:#ff3344;
+    --red-100:#fde6e8;
+    --green-600:#1f8a4c;
+    --green-100:#e5f6ec;
+    --amber-600:#b3760a;
+    --ink:#1a1c26;
+    --ink-soft:#5b5f74;
+    --line:#e3e5ef;
+    --bg:#f6f7fb;
+    --card:#ffffff;
+    --radius:14px;
+    --font-display:'Sora','Segoe UI',system-ui,sans-serif;
+    --font-body:'Inter','Segoe UI',system-ui,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);}
+  body{padding-bottom:60px;}
+  a{color:inherit;}
+
+  /* ---------- HEADER ---------- */
+  header.topbar{
+    background:linear-gradient(135deg,var(--navy-950) 0%, var(--navy-800) 100%);
+    color:#fff;
+    padding:22px clamp(16px,4vw,48px);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:24px;
+    position:relative;
+    overflow:hidden;
+  }
+  header.topbar::after{
+    content:"";
+    position:absolute;
+    right:-40px;top:-60%;
+    width:260px;height:260px;
+    background:radial-gradient(circle, rgba(224,7,26,0.35), transparent 70%);
+    pointer-events:none;
+  }
+  .brand{display:flex;align-items:center;gap:16px;z-index:1;}
+  .brand img{height:52px;width:auto;display:block;filter:drop-shadow(0 2px 6px rgba(0,0,0,.25));background:#fff;border-radius:8px;padding:4px 8px;}
+  .brand-titles{display:flex;flex-direction:column;gap:2px;}
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--red-500);
+    font-weight:600;
+  }
+  h1.title{
+    font-family:var(--font-display);
+    font-size:clamp(18px,2.4vw,26px);
+    font-weight:700;
+    margin:2px 0 0 0;
+    line-height:1.2;
+    letter-spacing:-0.01em;
+  }
+  .title .accent{color:#ffd7db;}
+  .header-meta{
+    text-align:right;
+    z-index:1;
+    font-size:13px;
+    color:rgba(255,255,255,.75);
+    line-height:1.5;
+  }
+  .header-meta strong{color:#fff;display:block;font-size:14px;}
+  .last-update-info{
+    margin-top:8px;padding-top:8px;
+    border-top:1px solid rgba(255,255,255,.18);
+    font-size:11.5px;color:rgba(255,255,255,.6);
+  }
+  .last-update-info strong{
+    display:inline;color:#ffd7db;font-size:11.5px;font-weight:700;
+  }
+
+  /* ---------- LAYOUT ---------- */
+  main{max-width:1240px;margin:0 auto;padding:28px clamp(16px,4vw,32px) 0;}
+
+  /* ---------- SELETOR DE DATA (histórico diário) ---------- */
+  .date-selector-bar{
+    display:none;
+    align-items:center;gap:12px;flex-wrap:wrap;
+    background:var(--navy-50);border:1px solid var(--line);border-radius:12px;
+    padding:12px 16px;margin-bottom:20px;
+  }
+  .date-selector-bar.has-dates{display:flex;}
+  .date-selector-label{
+    font-size:12px;font-weight:700;color:var(--navy-900);
+    text-transform:uppercase;letter-spacing:.03em;flex:0 0 auto;
+  }
+  .date-chip-row{display:flex;gap:8px;flex-wrap:wrap;flex:1 1 auto;max-height:120px;overflow-y:auto;}
+  .date-chip{
+    background:#fff;border:1.5px solid var(--line);color:var(--navy-900);
+    font-family:var(--font-mono);font-weight:700;font-size:12px;
+    padding:6px 13px;border-radius:100px;cursor:pointer;
+    transition:all .15s ease;white-space:nowrap;
+  }
+  .date-chip:hover{border-color:var(--navy-700);}
+  .date-chip.active{background:var(--red-600);color:#fff;border-color:var(--red-600);}
+  .date-chip.is-latest::after{content:" · hoje";font-weight:500;opacity:.8;}
+
+  /* ---------- SWITCHER ---------- */
+  .switcher{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+    margin-bottom:28px;
+  }
+  .switch-card{
+    background:var(--card);
+    border:2px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px 22px;
+    cursor:pointer;
+    text-align:left;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+    box-shadow:0 1px 2px rgba(20,27,69,.04);
+  }
+  .switch-card:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(20,27,69,.08);}
+  .switch-card .icon{
+    width:46px;height:46px;flex:0 0 auto;
+    border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--navy-50);
+    color:var(--navy-800);
+  }
+  .switch-card .icon svg{width:24px;height:24px;}
+  .switch-card .txt{flex:1;}
+  .switch-card .txt .name{font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--navy-900);}
+  .switch-card .txt .desc{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+  .switch-card .preview{text-align:right;flex:0 0 auto;}
+  .switch-card .preview .num{font-family:var(--font-display);font-weight:700;font-size:20px;}
+  .switch-card .preview .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);}
+  .switch-card.active{
+    border-color:var(--red-600);
+    background:linear-gradient(180deg,#fff, var(--navy-50));
+    box-shadow:0 10px 24px rgba(224,7,26,.14);
+  }
+  .switch-card.active .icon{background:var(--red-600);color:#fff;}
+  .switch-card .chev{color:var(--ink-soft);font-size:20px;}
+
+  /* ---------- SECTION HEADINGS ---------- */
+  .section-heading{
+    display:flex;align-items:baseline;justify-content:space-between;
+    margin:6px 0 14px;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .section-heading h2{
+    font-family:var(--font-display);
+    font-size:17px;font-weight:700;color:var(--navy-900);
+    margin:0;
+    display:flex;align-items:center;gap:8px;
+  }
+  .section-heading h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--red-600);display:inline-block;}
+  .section-heading .note{font-size:12px;color:var(--ink-soft);}
+
+  /* ---------- KPI CARDS ---------- */
+  .kpi-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:16px;
+    margin-bottom:30px;
+  }
+  .kpi-grid-3{grid-template-columns:repeat(3,1fr);}
+  .kpi-card{
+    background:var(--card);
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    padding:18px 18px 16px;
+    position:relative;
+    overflow:hidden;
+  }
+  .kpi-card .bar-top{position:absolute;top:0;left:0;right:0;height:4px;}
+  .kpi-card .kpi-label{
+    font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--ink-soft);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .kpi-card .kpi-value{
+    font-family:var(--font-display);
+    font-size:clamp(22px,3vw,30px);
+    font-weight:700;
+    margin-top:8px;
+    line-height:1.1;
+  }
+  .kpi-card .kpi-sub{font-size:12px;color:var(--ink-soft);margin-top:6px;}
+  .kpi-card .kpi-foot{
+    margin-top:12px;font-size:11.5px;
+    display:flex;align-items:center;gap:6px;
+    font-weight:600;
+  }
+  .pill{
+    display:inline-flex;align-items:center;gap:4px;
+    padding:2px 8px;border-radius:100px;font-size:11px;font-weight:700;
+  }
+  .pill.good{background:var(--green-100);color:var(--green-600);}
+  .pill.bad{background:var(--red-100);color:var(--red-600);}
+  .pill.warn{background:#fdf3e3;color:var(--amber-600);}
+
+  /* ---------- GAP PIE CHART ---------- */
+  .kpi-card-gap{padding-bottom:16px;}
+  .kpi-gap-row{display:flex;align-items:center;gap:14px;}
+  .kpi-gap-text{flex:1 1 auto;min-width:0;}
+  .gap-pie-group{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .gap-pie-wrap{position:relative;width:72px;height:72px;}
+  .gap-pie{width:72px;height:72px;border-radius:50%;}
+  .gap-pie-hole{
+    position:absolute;top:8px;left:8px;width:56px;height:56px;border-radius:50%;
+    background:#fff;display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-weight:700;font-size:12.5px;color:var(--navy-900);
+    box-shadow:inset 0 0 0 1px var(--line);
+  }
+  .gap-pie-legend{display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--ink-soft);white-space:nowrap;}
+  .gap-pie-legend span{display:flex;align-items:center;gap:5px;}
+  .gap-pie-legend i{width:8px;height:8px;border-radius:2px;display:inline-block;}
+
+
+  /* ---------- ANÁLISE GERAL DE LOJAS (cards) ---------- */
+  .analise-grid{grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));}
+  .analise-card .kpi-value-sm{font-size:clamp(18px,2.4vw,22px);margin-top:6px;}
+  .kpi-divider{height:1px;background:var(--line);margin:14px 0 12px;}
+  .analise-total-card{border-color:var(--navy-800);background:linear-gradient(180deg,#fff,var(--navy-50));}
+
+  .good-text{color:var(--green-600);}
+  .bad-text{color:var(--red-600);}
+
+  /* ---------- BANDEIRAS STRIP (lojas only) ---------- */
+  .flags-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:14px;
+    margin-bottom:30px;
+  }
+  .flag-card{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;
+  }
+  .flag-card .flag-name{font-weight:700;font-size:13px;color:var(--navy-900);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+  .flag-card .flag-numbers{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-soft);margin-bottom:6px;}
+  .track{height:8px;border-radius:5px;background:var(--navy-50);overflow:hidden;}
+  .track > span{display:block;height:100%;border-radius:5px;background:var(--navy-700);}
+  .track > span.over{background:var(--green-600);}
+  .track > span.under{background:var(--red-600);}
+
+  /* ---------- CHART ---------- */
+  .chart-card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px 22px 14px;margin-bottom:30px;
+  }
+  .bar-row{display:grid;grid-template-columns:150px 1fr 90px;align-items:center;gap:12px;padding:7px 0;font-size:12.5px;border-bottom:1px dashed var(--line);}
+  .bar-row:last-child{border-bottom:none;}
+  .bar-row .gname{font-weight:600;color:var(--navy-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bar-track{position:relative;height:16px;background:var(--navy-50);border-radius:6px;overflow:hidden;}
+  .bar-fill{position:absolute;left:0;top:0;height:100%;border-radius:6px;background:var(--navy-700);}
+  .bar-fill.bad{background:var(--red-500);}
+  .bar-marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--navy-900);}
+  .bar-marker-mes{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--red-500);}
+  .bar-pct{text-align:right;font-weight:700;font-family:var(--font-mono);}
+
+  .bar-row-v2{padding:14px 18px 16px;}
+  .bar-row-v2 .bar-track{height:18px;}
+  .bar-pct-inline{font-family:var(--font-mono);font-weight:700;font-size:12.5px;margin-left:auto;}
+  .bar-track-wrap{position:relative;padding-top:40px;}
+  .bar-meta-marker-group{
+    position:absolute;top:0;height:40px;
+    transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;
+    white-space:nowrap;
+  }
+  .bar-meta-marker-group .label-name{
+    font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+    color:var(--ink-soft);line-height:1.3;
+  }
+  .bar-meta-marker-group .label-value{
+    font-family:var(--font-mono);font-size:10.5px;font-weight:700;
+    color:var(--navy-900);line-height:1.3;
+  }
+  .bar-meta-marker-group .connector{
+    width:2px;flex:1 1 auto;background:var(--navy-900);margin-top:2px;
+  }
+  .bar-meta-marker-group .connector.connector-mes{background:var(--red-500);}
+  .bar-numbers{margin-top:6px;font-size:12px;color:var(--ink-soft);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .bar-numbers-sep{font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;}
+
+  /* ---------- TABLE / ACCORDION ---------- */
+  .table-card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;margin-bottom:30px;
+  }
+  .table-head-row{
+    display:grid;
+    background:var(--navy-900);color:#fff;
+    font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;
+    padding:12px 18px;
+  }
+  .grid-lojas{grid-template-columns:1.4fr 1fr 1fr 1fr 0.7fr 1fr 1.05fr 0.9fr; min-width:920px;}
+  .grid-distrib{grid-template-columns:1.4fr 1fr 1fr .8fr .8fr .8fr 1.1fr;}
+  .grid-distrib-fat{grid-template-columns:1.4fr 1fr 1fr 1fr 0.8fr;}
+  .table-head-row > div:not(:first-child){text-align:right;}
+  .table-head-row > div:first-child{text-align:left;}
+
+  details.gestor-row{border-bottom:1px solid var(--line);}
+  details.gestor-row:last-of-type{border-bottom:none;}
+  details.gestor-row summary{
+    list-style:none;cursor:pointer;
+    display:grid;
+    align-items:center;
+    padding:12px 18px;
+    font-size:13px;
+  }
+  details.gestor-row summary::-webkit-details-marker{display:none;}
+  details.gestor-row summary > div{text-align:right;}
+  details.gestor-row summary > div:first-child,
+  details.gestor-row summary > div:nth-child(2){text-align:left;}
+  details.gestor-row summary .chev{
+    transition:transform .15s ease;color:var(--ink-soft);
+  }
+  details.gestor-row[open] summary .chev{transform:rotate(90deg);}
+  details.gestor-row summary .gestor-name{font-weight:700;color:var(--navy-900);}
+  details.gestor-row summary .cod{color:var(--ink-soft);font-weight:500;font-size:11.5px;}
+  .subtable{background:var(--navy-50);padding:4px 18px 12px;}
+  .subrow{
+    display:grid;
+    padding:8px 0;
+    font-size:12.5px;
+    border-bottom:1px solid #e3e6f5;
+    align-items:center;
+  }
+  .subrow:last-child{border-bottom:none;}
+  .subrow > div{text-align:right;}
+  .subrow > div:first-child{text-align:left;color:var(--ink-soft);padding-left:20px;}
+  .grid-lojas .subrow{grid-template-columns:1.4fr 1fr 1fr 1fr 0.7fr 1fr 1.05fr 0.9fr; min-width:920px;}
+  .table-scroll{overflow-x:auto;}
+  .table-scroll .grid-lojas{padding-right:18px;}
+  details.gestor-group{border-bottom:1px solid var(--line);}
+  details.gestor-group:last-of-type{border-bottom:none;}
+  .gestor-group-label{
+    background:var(--navy-900);color:#fff;
+    font-weight:700;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;
+    padding:9px 18px;
+    display:flex;align-items:center;gap:10px;
+    cursor:pointer;user-select:none;
+    list-style:none;
+  }
+  .gestor-group-label::-webkit-details-marker{display:none;}
+  .gestor-group-label .cod{color:rgba(255,255,255,.6);font-weight:500;text-transform:none;margin-left:6px;}
+  .chev-updown{
+    display:flex;align-items:center;
+    color:rgba(255,255,255,.85);
+    transition:transform .18s ease;
+    flex:0 0 auto;
+  }
+  .chev-updown svg{width:15px;height:15px;}
+  details.gestor-group[open] .chev-updown{transform:rotate(180deg);}
+
+  /* ---------- ATINGIMENTO DA META DO DIA (por loja) ---------- */
+  .day-goal-loja-block{padding:14px 18px 16px;border-bottom:1px solid var(--line);}
+  .day-goal-loja-block:last-child{border-bottom:none;}
+  .day-goal-loja-name{font-weight:700;font-size:12.5px;color:var(--navy-900);margin-bottom:8px;}
+  .day-goal-track{
+    position:relative;height:18px;border-radius:7px;
+    background:var(--navy-50);border:1px solid var(--line);overflow:hidden;
+  }
+  .day-goal-fill{position:absolute;left:0;top:0;height:100%;border-radius:7px;background:var(--navy-700);transition:width .2s ease;}
+  .day-goal-fill.bad{background:var(--red-500);}
+  .day-goal-marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--navy-900);}
+  .day-goal-numbers{
+    margin-top:8px;font-size:12.5px;color:var(--ink-soft);
+    display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  }
+  .day-goal-numbers .day-goal-sep{font-size:11px;}
+  .day-goal-numbers .day-goal-pct{margin-left:auto;font-size:14px;}
+
+  /* ---------- SELETOR INDIVIDUAL DE GESTOR ---------- */
+  .gestor-picker{
+    display:flex;flex-wrap:wrap;gap:9px;
+    margin-bottom:18px;
+  }
+  .gestor-chip{
+    background:#fff;border:1.5px solid var(--line);color:var(--navy-900);
+    font-family:var(--font-body);font-weight:700;font-size:12.5px;
+    padding:9px 16px;border-radius:100px;cursor:pointer;
+    transition:border-color .15s ease, background .15s ease, color .15s ease;
+  }
+  .gestor-chip:hover{border-color:var(--navy-700);}
+  .gestor-chip .cod{opacity:.55;font-weight:500;margin-left:6px;font-size:11px;}
+  .gestor-chip.active{background:var(--red-600);color:#fff;border-color:var(--red-600);}
+  .gestor-chip.active .cod{opacity:.85;}
+
+  .gestor-detail-panel{
+    border:1px solid var(--line);border-radius:var(--radius);
+    background:var(--card);
+    padding:22px clamp(16px,3vw,26px) 8px;
+    margin-bottom:30px;
+  }
+  .gestor-detail-empty{
+    color:var(--ink-soft);font-size:13px;text-align:center;padding:34px 10px;
+  }
+  .gestor-detail-header h3{
+    font-family:var(--font-display);font-size:17px;font-weight:700;color:var(--navy-900);margin:0 0 4px;
+  }
+  .gestor-detail-header h3 .cod{color:var(--ink-soft);font-weight:500;font-size:12px;margin-left:8px;}
+  .section-heading.detail-sub{margin:20px 0 12px;}
+  .section-heading.detail-sub h2{font-size:14px;}
+
+  /* ---------- ALERTA / SPLASH INDIVIDUAL DO GESTOR ---------- */
+  .gestor-alert{
+    display:flex;align-items:flex-start;gap:10px;
+    border:1.5px solid transparent;border-radius:12px;
+    padding:12px 14px;margin:12px 0 18px;
+    font-size:13px;line-height:1.45;
+  }
+  .gestor-alert-icon{font-size:16px;line-height:1.4;flex:0 0 auto;}
+  .gestor-alert-text strong{font-weight:700;}
+  .gestor-alert-red{background:var(--red-100);border-color:var(--red-600);color:var(--red-600);}
+  .gestor-alert-yellow{background:#fdf3e3;border-color:var(--amber-600);color:var(--amber-600);}
+  .gestor-alert-green{background:var(--green-100);border-color:var(--green-600);color:var(--green-600);}
+  .gestor-alert-warn{background:var(--navy-50);border-color:var(--line);color:var(--ink-soft);}
+
+  .grid-margem{grid-template-columns:1.3fr 1fr 1fr 1fr 1fr 0.8fr; min-width:760px;}
+
+  .mono{font-family:var(--font-mono);}
+  .num-strong{font-weight:700;}
+
+  footer.pagefoot{
+    max-width:1240px;margin:0 auto;padding:6px clamp(16px,4vw,32px) 40px;
+    font-size:11.5px;color:var(--ink-soft);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;
+  }
+
+  @media (max-width: 880px){
+    .switcher{grid-template-columns:1fr;}
+    .kpi-grid{grid-template-columns:1fr 1fr;}
+    .flags-grid{grid-template-columns:1fr 1fr;}
+    header.topbar{flex-direction:column;align-items:flex-start;gap:12px;}
+    .header-meta{text-align:left;}
+    .table-head-row, details.gestor-row summary, .subrow{font-size:11px;}
+  }
+  @media (max-width: 560px){
+    .kpi-grid{grid-template-columns:1fr;}
+    .flags-grid{grid-template-columns:1fr;}
+    .grid-distrib{grid-template-columns:1fr;}
+    .table-head-row.grid-distrib > div:not(:first-child){display:none;}
+    .grid-distrib-fat{grid-template-columns:1fr;}
+    .table-head-row.grid-distrib-fat > div:not(:first-child){display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAB4AAAAMgCAYAAADC8X87AAABN2lDQ1BBZG9iZSBSR0IgKDE5OTgpAAAokZWPv0rDUBSHvxtFxaFWCOLgcCdRUGzVwYxJW4ogWKtDkq1JQ5ViEm6uf/oQjm4dXNx9AidHwUHxCXwDxamDQ4QMBYvf9J3fORzOAaNi152GUYbzWKt205Gu58vZF2aYAoBOmKV2q3UAECdxxBjf7wiA10277jTG+38yH6ZKAyNguxtlIYgK0L/SqQYxBMygn2oQD4CpTto1EE9AqZf7G1AKcv8ASsr1fBBfgNlzPR+MOcAMcl8BTB1da4Bakg7UWe9Uy6plWdLuJkEkjweZjs4zuR+HiUoT1dFRF8jvA2AxH2w3HblWtay99X/+PRHX82Vun0cIQCw9F1lBeKEuf1UYO5PrYsdwGQ7vYXpUZLs3cLcBC7dFtlqF8hY8Dn8AwMZP/fNTP8gAAAAJcEhZcwAACxMAAAsTAQCanBgAAAbkaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8P3hwYWNrZXQgYmVnaW49Iu+7vyIgaWQ9Ilc1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCI/PiA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJBZG9iZSBYTVAgQ29yZSA2LjAtYzAwNiA3OS4xNjQ3NTMsIDIwMjEvMDIvMTUtMTE6NTI6MTMgICAgICAgICI+IDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+IDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0RXZ0PSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VFdmVudCMiIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIiB4bXA6Q3JlYXRvclRvb2w9IkFkb2JlIFBob3Rvc2hvcCAyMi4zIChXaW5kb3dzKSIgeG1wOkNyZWF0ZURhdGU9IjIwMjEtMTEtMDhUMTA6MzA6NTctMDM6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMjEtMTEtMDhUMTA6MzA6NTctMDM6MDAiIHhtcDpNb2RpZnlEYXRlPSIyMDIxLTExLTA4VDEwOjMwOjU3LTAzOjAwIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOmEwNWM1MjU3LWQ4MWEtZGM0Ni1iYmY4LTlhZDBmMThkZjBmYiIgeG1wTU06RG9jdW1lbnRJRD0iYWRvYmU6ZG9jaWQ6cGhvdG9zaG9wOjMxYmFjZjdiLTVmODgtMGE0YS05YmY4LTQyNTk0Y2M4NjQ5OCIgeG1wTU06T3JpZ2luYWxEb2N1bWVudElEPSJ4bXAuZGlkOjFmMjkyYmQ5LTcyOTctNTE0ZS04ZTdjLTFhZGY0NDUyZGUyMCIgcGhvdG9zaG9wOkNvbG9yTW9kZT0iMyIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciPiA8eG1wTU06SGlzdG9yeT4gPHJkZjpTZXE+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJjcmVhdGVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOjFmMjkyYmQ5LTcyOTctNTE0ZS04ZTdjLTFhZGY0NDUyZGUyMCIgc3RFdnQ6d2hlbj0iMjAyMS0xMS0wOFQxMDozMDo1Ny0wMzowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIyLjMgKFdpbmRvd3MpIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDphMDVjNTI1Ny1kODFhLWRjNDYtYmJmOC05YWQwZjE4ZGYwZmIiIHN0RXZ0OndoZW49IjIwMjEtMTEtMDhUMTA6MzA6NTctMDM6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCAyMi4zIChXaW5kb3dzKSIgc3RFdnQ6Y2hhbmdlZD0iLyIvPiA8L3JkZjpTZXE+IDwveG1wTU06SGlzdG9y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EgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQSBsCSJEmSJEmSJEmSlBIGwJIkSZIkSZIkSZKUEgbAkiRJkiRJkiRJkpQS/x8Os70CS5NZgwAAAABJRU5ErkJggg==" alt="KarneKeijo">
+    <div class="brand-titles">
+      <span class="eyebrow">Dashboard de acompanhamento</span>
+      <h1 class="title">Painel de Acompanhamento &middot; PAD <span class="accent">/ <span id="titleMonth">Agosto 2026</span></span></h1>
+    </div>
+  </div>
+  <div class="header-meta">
+    <strong id="lastUpdateLabel">Lojas &amp; Distribuição</strong>
+    Meta, ritmo e gap de faturamento por gestor
+    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">13/08/2026 às 15:25</strong></div>
+  </div>
+</header>
+
+<main>
+
+  <div id="dateSelectorBar" class="date-selector-bar"></div>
+
+  <div class="switcher">
+    <button class="switch-card active" id="btn-lojas" onclick="setView('lojas')">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v11H3z"/><path d="M9 20v-6h6v6"/></svg>
+      </span>
+      <span class="txt">
+        <span class="name">PAD LOJAS</span>
+        <span class="desc">Faturamento, margem e meta do dia por gestor e loja</span>
+      </span>
+      <span class="preview">
+        <span class="num" id="prev-lojas-num">—</span>
+        <span class="lbl">Atingimento fat.</span>
+      </span>
+      <span class="chev">›</span>
+    </button>
+
+    <button class="switch-card" id="btn-distribuicao" onclick="setView('distribuicao')">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      </span>
+      <span class="txt">
+        <span class="name">PAD DISTRIBUIÇÃO</span>
+        <span class="desc">Faturamento, ritmo e meta do dia por gestor</span>
+      </span>
+      <span class="preview">
+        <span class="num" id="prev-distribuicao-num">—</span>
+        <span class="lbl">Atingimento fat.</span>
+      </span>
+      <span class="chev">›</span>
+    </button>
+  </div>
+
+  <div id="view-root"></div>
+
+</main>
+
+<footer class="pagefoot">
+  <span>Fonte: PAD_AGOSTO_2026 (abas “PAD - LOJAS” e “PAD - DISTRIBUIÇÃO”)</span>
+  <span>Gerado a partir da planilha oficial &middot; valores em R$</span>
+</footer>
+
+<script>
+let DATA = {"lojas": {"total": {"estoque_real": 18802265.929999996, "pct_venda": 0.8482480343769736, "fat_meta": 22166000, "fat_meta_prop": 3511104.2183622825, "fat_real": 3811427.5300000133, "fat_pct": 1.0855352883195855, "lb_meta": 0.1445777155791086, "lb_real": 0.11415249405253645, "lb_pct": 0.7895580144927358, "mb_meta": 3204709.643526521, "mb_meta_prop": 508807.92187839345, "mb_real_verba": 15005.16, "mb_real_total": 435083.9584500002, "mb_pct": 0.8551045291193138, "day_meta": 768413.1513647641, "day_real": 941690.3199999995, "day_pct": 1.2255000039073787, "label": "TOTAL LOJAS"}, "bandeiras": [{"estoque_real": 4296112.530000002, "pct_venda": 0.8098232855796422, "fat_meta": 5305000, "fat_meta_prop": 816153.8461538462, "fat_real": 978266.1800000011, "fat_pct": 1.1986296267672019, "lb_meta": 0.09996473032566956, "lb_real": 0.08533583433294185, "lb_pct": 0.8536594262289405, "mb_meta": 530312.894377677, "mb_meta_prop": 81586.59913502724, "mb_real_verba": 253.68, "mb_real_total": 83481.16066999997, "mb_pct": 1.0232214794470988, "day_meta": 204038.46153846156, "day_real": 297992.6899999999, "day_pct": 1.4604731272384535, "label": "CEASA"}, {"estoque_real": 5361761.919999999, "pct_venda": 1.005393197074817, "fat_meta": 5333000, "fat_meta_prop": 860161.2903225806, "fat_real": 890935.1800000067, "fat_pct": 1.0357768828051832, "lb_meta": 0.15331502410165393, "lb_real": 0.1561459083140021, "lb_pct": 1.018464493150203, "mb_meta": 817629.0235341204, "mb_meta_prop": 131875.6489571162, "mb_real_verba": 0, "mb_real_total": 139115.88293, "mb_pct": 1.0549019779628777, "day_meta": 172032.2580645161, "day_real": 179753.7299999999, "day_pct": 1.0448838608663038, "label": "CASA AMARELA"}, {"estoque_real": 8652535.179999996, "pct_venda": 1.0515964000972284, "fat_meta": 8228000, "fat_meta_prop": 1327096.7741935484, "fat_real": 1299977.5200000056, "fat_pct": 0.9795649761789056, "lb_meta": 0.15818779564681068, "lb_real": 0.16434566103112253, "lb_pct": 1.0389275630217432, "mb_meta": 1301569.1825819584, "mb_meta_prop": 209930.51331967066, "mb_real_verba": 6506.36, "mb_real_total": 213645.66485000023, "mb_pct": 1.0176970535230023, "day_meta": 265419.35483870964, "day_real": 297242.8299999998, "day_pct": 1.1198988490520168, "label": "IMBIRIBEIRA"}, {"estoque_real": 491856.29999999993, "pct_venda": 0.14904736363636362, "fat_meta": 3300000, "fat_meta_prop": 507692.3076923077, "fat_real": 642248.65, "fat_pct": 1.2650352196969699, "lb_meta": 0.16824198273720167, "lb_real": -0.0018042077628345281, "lb_pct": -0.010723885521800746, "mb_meta": 555198.5430327655, "mb_meta_prop": 85415.16046657931, "mb_real_verba": 8245.119999999999, "mb_real_total": -1158.749999999996, "mb_pct": -0.01356609287707636, "day_meta": 126923.07692307692, "day_real": 166701.06999999998, "day_pct": 1.3134023696969694, "label": "LOJÃO"}], "gestores": [{"cod": "C01", "nome": "DIOGO", "lojas": [{"estoque_real": 30792.699999999997, "pct_venda": 0.3947782051282051, "fat_meta": 78000, "fat_meta_prop": 12000, "fat_real": 11687.689999999995, "fat_pct": 0.9739741666666663, "lb_meta": 0.199, "lb_real": 0.2080197198933237, "lb_pct": 1.0453252255945915, "mb_meta": 15522, "mb_meta_prop": 2388, "mb_real_verba": 0, "mb_real_total": 2431.2699999999995, "mb_pct": 1.0181197654941372, "day_meta": 3000, "day_real": 4589.6500000000015, "day_pct": 1.529883333333334, "loja": "CEASA"}, {"estoque_real": 86724.82999999999, "pct_venda": 0.7541289565217391, "fat_meta": 115000, "fat_meta_prop": 18548.387096774193, "fat_real": 16714.67999999993, "fat_pct": 0.9011392695652137, "lb_meta": 0.2, "lb_real": 0.21903500396059103, "lb_pct": 1.095175019802955, "mb_meta": 23000, "mb_meta_prop": 3709.6774193548385, "mb_real_verba": 0, "mb_real_total": 3661.0999999999967, "mb_pct": 0.9869052173913035, "day_meta": 3709.6774193548385, "day_real": 3428.9400000000005, "day_pct": 0.9243229565217393, "loja": "CASA AMARELA"}, {"estoque_real": 137609.53, "pct_venda": 0.7242606842105264, "fat_meta": 190000, "fat_meta_prop": 30645.16129032258, "fat_real": 34771.71000000006, "fat_pct": 1.134655800000002, "lb_meta": 0.192, "lb_real": 0.2239288778147517, "lb_pct": 1.1662962386184985, "mb_meta": 36480, "mb_meta_prop": 5883.870967741936, "mb_real_verba": 0, "mb_real_total": 7786.389999999993, "mb_pct": 1.3233447916666654, "day_meta": 6129.032258064516, "day_real": 8360.709999999995, "day_pct": 1.3641158421052624, "loja": "IMBIRIBEIRA"}, {"estoque_real": 24791.36, "pct_venda": 0.5164866666666666, "fat_meta": 48000, "fat_meta_prop": 7384.615384615385, "fat_real": 5173.749999999999, "fat_pct": 0.7006119791666665, "lb_meta": 0.12, "lb_real": 0.1331297414834501, "lb_pct": 1.1094145123620842, "mb_meta": 5760, "mb_meta_prop": 886.1538461538462, "mb_real_verba": 0, "mb_real_total": 688.7799999999999, "mb_pct": 0.777269097222222, "day_meta": 1846.1538461538462, "day_real": 93.6, "day_pct": 0.050699999999999995, "loja": "LOJÃO"}], "total": {"estoque_real": 279918.42, "pct_venda": 0.6494626914153132, "fat_meta": 431000, "fat_meta_prop": 68578.16377171216, "fat_real": 68347.82999999999, "fat_pct": 0.9966412957267429, "lb_meta": 0.18738283062645011, "lb_real": 0.2131382956854664, "lb_pct": 1.1374483722596769, "mb_meta": 80762, "mb_meta_prop": 12867.70223325062, "mb_real_verba": 0, "mb_real_total": 14567.53999999999, "mb_pct": 1.1321011114445068, "day_meta": 14684.863523573202, "day_real": 16472.899999999998, "day_pct": 1.121760510307536, "label": "TOTAL DIOGO"}}, {"cod": "C02", "nome": "RONALDO", "lojas": [{"estoque_real": 937640.2800000014, "pct_venda": 1.856713425742577, "fat_meta": 505000, "fat_meta_prop": 77692.30769230769, "fat_real": 67585.62000000029, "fat_pct": 0.869913920792083, "lb_meta": 0.102, "lb_real": 0.13009834044579235, "lb_pct": 1.2754739259391408, "mb_meta": 51510, "mb_meta_prop": 7924.615384615385, "mb_real_verba": 0, "mb_real_total": 8792.77699999999, "mb_pct": 1.1095525237817885, "day_meta": 19423.076923076922, "day_real": 21937.519999999993, "day_pct": 1.1294564752475245, "loja": "CEASA"}, {"estoque_real": 1306625.36, "pct_venda": 1.5282167953216375, "fat_meta": 855000, "fat_meta_prop": 137903.2258064516, "fat_real": 145736.10000000012, "fat_pct": 1.0567997894736851, "lb_meta": 0.124, "lb_real": 0.14180684573005573, "lb_pct": 1.1436035945972236, "mb_meta": 106020, "mb_meta_prop": 17100, "mb_real_verba": 0, "mb_real_total": 20666.37664999999, "mb_pct": 1.2085600380116954, "day_meta": 27580.645161290322, "day_real": 30239.28000000004, "day_pct": 1.0963949473684225, "loja": "CASA AMARELA"}, {"estoque_real": 1968040.2500000005, "pct_venda": 1.6000327235772362, "fat_meta": 1230000, "fat_meta_prop": 198387.09677419357, "fat_real": 206671.7799999992, "fat_pct": 1.0417601918699146, "lb_meta": 0.13893604741657134, "lb_real": 0.16306197174089337, "lb_pct": 1.1736476945539223, "mb_meta": 170891.33832238274, "mb_meta_prop": 27563.119084255282, "mb_real_verba": 5000, "mb_real_total": 33700.30795, "mb_pct": 1.222659447466177, "day_meta": 39677.41935483871, "day_real": 48716.98000000011, "day_pct": 1.2278263252032549, "loja": "IMBIRIBEIRA"}, {"estoque_real": 55969.65999999998, "pct_venda": 1.2167317391304344, "fat_meta": 46000, "fat_meta_prop": 7076.923076923077, "fat_real": 4536.259999999993, "fat_pct": 0.6409932608695642, "lb_meta": 0.14274666366379846, "lb_real": 0.11814358083531379, "lb_pct": 0.8276451288106415, "mb_meta": 6566.346528534729, "mb_meta_prop": 1010.2071582361122, "mb_real_verba": 0, "mb_real_total": 535.9299999999997, "mb_pct": 0.5305149499591436, "day_meta": 1769.2307692307693, "day_real": 2090.1500000000005, "day_pct": 1.1813891304347828, "loja": "LOJÃO"}], "total": {"estoque_real": 4268275.550000003, "pct_venda": 1.6192244119878614, "fat_meta": 2636000, "fat_meta_prop": 421059.5533498759, "fat_real": 424529.75999999966, "fat_pct": 1.0082416053085967, "lb_meta": 0.12708182278107644, "lb_real": 0.15003751821780417, "lb_pct": 1.1806371275951357, "mb_meta": 334987.6848509175, "mb_meta_prop": 53597.941627106775, "mb_real_verba": 5000, "mb_real_total": 63695.39159999998, "mb_pct": 1.1883924954272216, "day_meta": 88450.37220843672, "day_real": 102983.93000000014, "day_pct": 1.1643131332145729, "label": "TOTAL RONALDO"}}, {"cod": "C03", "nome": "BÁRBARA", "lojas": [{"estoque_real": 63890.400000000016, "pct_venda": 0.3714558139534885, "fat_meta": 172000, "fat_meta_prop": 26461.53846153846, "fat_real": 25441.66000000008, "fat_pct": 0.9614580813953518, "lb_meta": 0.18049539855642663, "lb_real": 0.18280397269674953, "lb_pct": 1.0127902104917161, "mb_meta": 31045.20855170538, "mb_meta_prop": 4776.185931031597, "mb_real_verba": 0, "mb_real_total": 4650.836519999999, "mb_pct": 0.97375533263536, "day_meta": 6615.384615384615, "day_real": 4075.559999999998, "day_pct": 0.6160730232558137, "loja": "CEASA"}, {"estoque_real": 86646.21000000002, "pct_venda": 0.5096835882352942, "fat_meta": 170000, "fat_meta_prop": 27419.354838709678, "fat_real": 32705.970000000223, "fat_pct": 1.1928059647058904, "lb_meta": 0.24, "lb_real": 0.25883976014164806, "lb_pct": 1.0784990005902002, "mb_meta": 40800, "mb_meta_prop": 6580.645161290323, "mb_real_verba": 0, "mb_real_total": 8465.605429999994, "mb_pct": 1.2864400408333323, "day_meta": 5483.870967741936, "day_real": 3503.389999999993, "day_pct": 0.638853470588234, "loja": "CASA AMARELA"}, {"estoque_real": 184046.91999999984, "pct_venda": 0.6134897333333328, "fat_meta": 300000, "fat_meta_prop": 48387.09677419355, "fat_real": 45084.020000000164, "fat_pct": 0.9317364133333367, "lb_meta": 0.2454763606760161, "lb_real": 0.2843374499434597, "lb_pct": 1.1583088862830793, "mb_meta": 73642.90820280483, "mb_meta_prop": 11877.88841980723, "mb_real_verba": 1357.86, "mb_real_total": 12819.075279999985, "mb_pct": 1.0792385672375284, "day_meta": 9677.41935483871, "day_real": 8337.629999999986, "day_pct": 0.8615550999999986, "loja": "IMBIRIBEIRA"}, {"estoque_real": -30144.909999999985, "pct_venda": -0.03387068539325841, "fat_meta": 890000, "fat_meta_prop": 136923.07692307694, "fat_real": 145677.00999999998, "fat_pct": 1.0639332191011233, "lb_meta": 0.25654294550894213, "lb_real": 0.12165783743090283, "lb_pct": 0.47422016298110325, "mb_meta": 228323.2215029585, "mb_meta_prop": 35126.64946199361, "mb_real_verba": 134.55, "mb_real_total": 17722.750000000004, "mb_pct": 0.5045385845631446, "day_meta": 34230.769230769234, "day_real": 3000.1099999999997, "day_pct": 0.0876436629213483, "loja": "LOJÃO"}], "total": {"estoque_real": 304438.61999999994, "pct_venda": 0.19871972584856393, "fat_meta": 1532000, "fat_meta_prop": 239191.06699751862, "fat_real": 248908.66000000044, "fat_pct": 1.0406269060314977, "lb_meta": 0.24400217901923546, "lb_real": 0.17539874759680882, "lb_pct": 0.7188409066747784, "mb_meta": 373811.3382574687, "mb_meta_prop": 58361.368974122764, "mb_real_verba": 1492.4099999999999, "mb_real_total": 43658.26722999998, "mb_pct": 0.748067908574213, "day_meta": 56007.444168734495, "day_real": 18916.689999999977, "day_pct": 0.337753137654512, "label": "TOTAL BÁRBARA"}}, {"cod": "C05", "nome": "BRUNO", "lojas": [{"estoque_real": 164022.00000000006, "pct_venda": 0.49703636363636383, "fat_meta": 330000, "fat_meta_prop": 50769.230769230766, "fat_real": 79823.45000000004, "fat_pct": 1.5722800757575766, "lb_meta": 0.13899298735142904, "lb_real": 0.08699853113339494, "lb_pct": 0.6259202913124557, "mb_meta": 45867.68582597158, "mb_meta_prop": 7056.567050149474, "mb_real_verba": 0, "mb_real_total": 6944.522899999998, "mb_pct": 0.9841220030429524, "day_meta": 12692.307692307691, "day_real": 12782.859999999984, "day_pct": 1.0071344242424232, "loja": "CEASA"}, {"estoque_real": 150711.56, "pct_venda": 0.5023718666666667, "fat_meta": 300000, "fat_meta_prop": 48387.09677419355, "fat_real": 42754.0900000003, "fat_pct": 0.8835845266666729, "lb_meta": 0.169, "lb_real": 0.1815249956203007, "lb_pct": 1.0741124001201223, "mb_meta": 50700, "mb_meta_prop": 8177.41935483871, "mb_real_verba": 0, "mb_real_total": 7760.935999999997, "mb_pct": 0.9490690966469424, "day_meta": 9677.41935483871, "day_real": 8892.46999999997, "day_pct": 0.9188885666666635, "loja": "CASA AMARELA"}, {"estoque_real": 295738.56000000023, "pct_venda": 0.6499748571428576, "fat_meta": 455000, "fat_meta_prop": 73387.09677419355, "fat_real": 58218.07000000012, "fat_pct": 0.7933011736263753, "lb_meta": 0.189, "lb_real": 0.20482293315460245, "lb_pct": 1.0837192230402246, "mb_meta": 85995, "mb_meta_prop": 13870.16129032258, "mb_real_verba": 0, "mb_real_total": 11924.395859999991, "mb_pct": 0.8597157315192738, "day_meta": 14677.41935483871, "day_real": 12330.12999999996, "day_pct": 0.8400747912087884, "loja": "IMBIRIBEIRA"}, {"estoque_real": 22589.960000000006, "pct_venda": 0.04429403921568629, "fat_meta": 510000, "fat_meta_prop": 78461.53846153847, "fat_real": 110286.65999999997, "fat_pct": 1.4056142941176466, "lb_meta": 0.22, "lb_real": 0.01607447355827079, "lb_pct": 0.07306578890123086, "mb_meta": 112200, "mb_meta_prop": 17261.53846153846, "mb_real_verba": 0, "mb_real_total": 1772.8000000000002, "mb_pct": 0.1027023172905526, "day_meta": 19615.384615384617, "day_real": 50966.2, "day_pct": 2.598276862745098, "loja": "LOJÃO"}], "total": {"estoque_real": 633062.0800000003, "pct_venda": 0.3969041253918497, "fat_meta": 1595000, "fat_meta_prop": 251004.96277915634, "fat_real": 291082.2700000004, "fat_pct": 1.1596673897484076, "lb_meta": 0.18480419174042106, "lb_real": 0.09757603841690511, "lb_pct": 0.5279968895616934, "mb_meta": 294762.6858259716, "mb_meta_prop": 46365.686156849224, "mb_real_verba": 0, "mb_real_total": 28402.654759999987, "mb_pct": 0.612579196259868, "day_meta": 56662.53101736973, "day_real": 84971.65999999992, "day_pct": 1.499609326910443, "label": "TOTAL BRUNO"}}, {"cod": "C06", "nome": "VINICIUS", "lojas": [{"estoque_real": 318219.9100000001, "pct_venda": 0.21214660666666674, "fat_meta": 1500000, "fat_meta_prop": 230769.23076923078, "fat_real": 381756.1399999999, "fat_pct": 1.654276606666666, "lb_meta": 0.07, "lb_real": 0.05839860807477778, "lb_pct": 0.8342658296396824, "mb_meta": 105000.00000000001, "mb_meta_prop": 16153.846153846156, "mb_real_verba": 0, "mb_real_total": 22294.02719999999, "mb_pct": 1.3801064457142849, "day_meta": 57692.307692307695, "day_real": 142680.42000000007, "day_pct": 2.4731272800000013, "loja": "CEASA"}, {"estoque_real": 362929.0999999999, "pct_venda": 0.5853695161290321, "fat_meta": 620000, "fat_meta_prop": 100000, "fat_real": 78841.39000000004, "fat_pct": 0.7884139000000004, "lb_meta": 0.149, "lb_real": 0.1370062552169614, "lb_pct": 0.9195050685702106, "mb_meta": 92380, "mb_meta_prop": 14900, "mb_real_verba": 0, "mb_real_total": 10801.763599999993, "mb_pct": 0.7249505771812076, "day_meta": 20000, "day_real": 18708.590000000004, "day_pct": 0.9354295000000001, "loja": "CASA AMARELA"}, {"estoque_real": 1071103.6099999996, "pct_venda": 0.6300609470588233, "fat_meta": 1700000, "fat_meta_prop": 274193.5483870968, "fat_real": 253261.57999999975, "fat_pct": 0.9236598799999991, "lb_meta": 0.135, "lb_real": 0.10243912400767634, "lb_pct": 0.7588083259827877, "mb_meta": 229500.00000000003, "mb_meta_prop": 37016.12903225807, "mb_real_verba": 0, "mb_real_total": 25943.894400000016, "mb_pct": 0.7008808073202618, "day_meta": 54838.709677419356, "day_real": 80335.58999999994, "day_pct": 1.4649431117647047, "loja": "IMBIRIBEIRA"}, {"estoque_real": 176394.69000000006, "pct_venda": 0.3392205576923078, "fat_meta": 520000, "fat_meta_prop": 80000, "fat_real": 180329.73999999996, "fat_pct": 2.2541217499999995, "lb_meta": 0.06, "lb_real": 0.0009750471552834349, "lb_pct": 0.016250785921390582, "mb_meta": 31200, "mb_meta_prop": 4800, "mb_real_verba": 0, "mb_real_total": 175.8300000000014, "mb_pct": 0.036631250000000296, "day_meta": 20000, "day_real": 17395.739999999998, "day_pct": 0.8697869999999999, "loja": "LOJÃO"}], "total": {"estoque_real": 1928647.3099999996, "pct_venda": 0.44438878110599067, "fat_meta": 4340000, "fat_meta_prop": 684962.7791563275, "fat_real": 894188.8499999996, "fat_pct": 1.3054561170482535, "lb_meta": 0.1055483870967742, "lb_real": 0.0662226052136526, "lb_pct": 0.6274146581978088, "mb_meta": 458080, "mb_meta_prop": 72869.97518610422, "mb_real_verba": 0, "mb_real_total": 59215.515199999994, "mb_pct": 0.8126188467715023, "day_meta": 152531.01736972705, "day_real": 259120.34, "day_pct": 1.6988042462990076, "label": "TOTAL VINICIUS"}}, {"cod": "C07", "nome": "GERALDO", "lojas": [{"estoque_real": 117080.07000000012, "pct_venda": 0.5321821363636369, "fat_meta": 220000, "fat_meta_prop": 33846.153846153844, "fat_real": 30419.290000000143, "fat_pct": 0.8987517500000043, "lb_meta": 0.105, "lb_real": 0.10334359546195783, "lb_pct": 0.9842247186853127, "mb_meta": 23100, "mb_meta_prop": 3553.846153846154, "mb_real_verba": 0, "mb_real_total": 3143.638799999994, "mb_pct": 0.8845736883116866, "day_meta": 8461.538461538461, "day_real": 9964.96999999998, "day_pct": 1.1776782727272703, "loja": "CEASA"}, {"estoque_real": 200461.27000000002, "pct_venda": 0.34266883760683764, "fat_meta": 585000, "fat_meta_prop": 94354.83870967742, "fat_real": 98317.88000000149, "fat_pct": 1.042001463247879, "lb_meta": 0.1599, "lb_real": 0.14975484011656642, "lb_pct": 0.9365530964137988, "mb_meta": 93541.49999999999, "mb_meta_prop": 15087.338709677417, "mb_real_verba": 0, "mb_real_total": 14723.578399999986, "mb_pct": 0.9758896968725104, "day_meta": 18870.967741935485, "day_real": 20172.069999999985, "day_pct": 1.0689472991452984, "loja": "CASA AMARELA"}, {"estoque_real": 337973.8800000003, "pct_venda": 0.36736291304347857, "fat_meta": 920000, "fat_meta_prop": 148387.09677419355, "fat_real": 155662.60000000073, "fat_pct": 1.0490305652173963, "lb_meta": 0.172, "lb_real": 0.17201336737276654, "lb_pct": 1.0000777172835265, "mb_meta": 158240, "mb_meta_prop": 25522.58064516129, "mb_real_verba": 0, "mb_real_total": 26776.048000000137, "mb_pct": 1.0491120930232611, "day_meta": 29677.41935483871, "day_real": 27976.90000000018, "day_pct": 0.9426998913043539, "loja": "IMBIRIBEIRA"}, {"estoque_real": 8342.84, "pct_venda": 0.151688, "fat_meta": 55000, "fat_meta_prop": 8461.538461538461, "fat_real": 11168.84999999999, "fat_pct": 1.3199549999999989, "lb_meta": 0.1622002992865705, "lb_real": 0.09068256803520523, "lb_pct": 0.5590776862562383, "mb_meta": 8921.016460761379, "mb_meta_prop": 1372.464070886366, "mb_real_verba": 0, "mb_real_total": 1012.8200000000011, "mb_pct": 0.7379573873623524, "day_meta": 2115.3846153846152, "day_real": 5105.710000000001, "day_pct": 2.413608363636364, "loja": "LOJÃO"}], "total": {"estoque_real": 663858.0600000004, "pct_venda": 0.37295396629213506, "fat_meta": 1780000, "fat_meta_prop": 285049.6277915632, "fat_real": 295568.6200000023, "fat_pct": 1.0369023186942412, "lb_meta": 0.1594396159891918, "lb_real": 0.15446864826178017, "lb_pct": 0.9688222547666661, "mb_meta": 283802.51646076137, "mb_meta_prop": 45536.22957957123, "mb_real_verba": 0, "mb_real_total": 45656.08520000012, "mb_pct": 1.0026320936435777, "day_meta": 59125.31017369727, "day_real": 63219.65000000015, "day_pct": 1.0692485132724818, "label": "TOTAL GERALDO"}}, {"cod": "C08", "nome": "ELISANGELA", "lojas": [{"estoque_real": 571456.6899999998, "pct_venda": 3.1057428804347817, "fat_meta": 184000, "fat_meta_prop": 28307.69230769231, "fat_real": 21111.63000000014, "fat_pct": 0.7457912771739179, "lb_meta": 0.12, "lb_real": 0.1549338847829363, "lb_pct": 1.2911157065244692, "mb_meta": 22080, "mb_meta_prop": 3396.923076923077, "mb_real_verba": 0, "mb_real_total": 3270.906850000003, "mb_pct": 0.9629028317481892, "day_meta": 7076.923076923077, "day_real": 5650.539999999965, "day_pct": 0.7984458695652125, "loja": "CEASA"}, {"estoque_real": 939887.5299999991, "pct_venda": 2.0886389555555533, "fat_meta": 450000, "fat_meta_prop": 72580.64516129032, "fat_real": 82065.68000000168, "fat_pct": 1.1306827022222454, "lb_meta": 0.15917612152391283, "lb_real": 0.20082430804204238, "lb_pct": 1.2616484565611983, "mb_meta": 71629.25468576078, "mb_meta_prop": 11553.105594477545, "mb_real_verba": 0, "mb_real_total": 16480.783400000015, "mb_pct": 1.4265240861191408, "day_meta": 14516.129032258064, "day_real": 18128.749999999996, "day_pct": 1.2488694444444441, "loja": "CASA AMARELA"}, {"estoque_real": 1192409.4699999986, "pct_venda": 2.0919464385964885, "fat_meta": 570000, "fat_meta_prop": 91935.48387096774, "fat_real": 99300.98000000212, "fat_pct": 1.0801159228070405, "lb_meta": 0.167, "lb_real": 0.19381894931952998, "lb_pct": 1.160592510895389, "mb_meta": 95190, "mb_meta_prop": 15353.225806451612, "mb_real_verba": 0, "mb_real_total": 19246.411610000072, "mb_pct": 1.2535744509087137, "day_meta": 18387.09677419355, "day_real": 19452.609999999917, "day_pct": 1.0579489649122762, "loja": "IMBIRIBEIRA"}, {"estoque_real": 37421.219999999965, "pct_venda": 1.700964545454544, "fat_meta": 22000, "fat_meta_prop": 3384.6153846153848, "fat_real": 8964.76999999999, "fat_pct": 2.6486820454545423, "lb_meta": 0.17, "lb_real": -0.6094322553729768, "lb_pct": -3.58489561984104, "mb_meta": 3740.0000000000005, "mb_meta_prop": 575.3846153846155, "mb_real_verba": 2650, "mb_real_total": -5463.4199999999955, "mb_pct": -9.495248663101595, "day_meta": 846.1538461538462, "day_real": 1124.5300000000004, "day_pct": 1.3289900000000006, "loja": "LOJÃO"}], "total": {"estoque_real": 2741174.9099999974, "pct_venda": 2.2358686052202263, "fat_meta": 1226000, "fat_meta_prop": 196208.43672456575, "fat_real": 211443.06000000393, "fat_pct": 1.0776450978854915, "lb_meta": 0.15712826646473146, "lb_real": 0.15859911344453428, "lb_pct": 1.0093608044745594, "mb_meta": 192639.25468576077, "mb_meta_prop": 30878.639093236852, "mb_real_verba": 2650, "mb_real_total": 33534.68186000009, "mb_pct": 1.086015538403212, "day_meta": 40826.302729528536, "day_real": 44356.42999999988, "day_pct": 1.0864669841366286, "label": "TOTAL ELISANGELA"}}, {"cod": "C09", "nome": "CAROLINA", "lojas": [{"estoque_real": 140442.72999999995, "pct_venda": 0.2421426379310344, "fat_meta": 580000, "fat_meta_prop": 89230.76923076923, "fat_real": 87150.85000000005, "fat_pct": 0.9766905603448282, "lb_meta": 0.169, "lb_real": 0.17319197689982385, "lb_pct": 1.0248045970403779, "mb_meta": 98020, "mb_meta_prop": 15080, "mb_real_verba": 0, "mb_real_total": 15093.828000000023, "mb_pct": 1.0009169761273224, "day_meta": 22307.69230769231, "day_real": 13444.899999999994, "day_pct": 0.6027024137931032, "loja": "CEASA"}, {"estoque_real": 97598.24999999993, "pct_venda": 0.3827382352941174, "fat_meta": 255000, "fat_meta_prop": 41129.032258064515, "fat_real": 39716.180000000146, "fat_pct": 0.9656482980392193, "lb_meta": 0.199, "lb_real": 0.20450236654179643, "lb_pct": 1.0276500831246052, "mb_meta": 50745, "mb_meta_prop": 8184.677419354839, "mb_real_verba": 0, "mb_real_total": 8122.052799999995, "mb_pct": 0.9923485537491372, "day_meta": 8225.806451612903, "day_real": 8289.199999999988, "day_pct": 1.0077066666666652, "loja": "CASA AMARELA"}, {"estoque_real": 193611.68999999994, "pct_venda": 0.42089497826086947, "fat_meta": 460000, "fat_meta_prop": 74193.54838709677, "fat_real": 60479.71000000016, "fat_pct": 0.8151613086956543, "lb_meta": 0.20768464360167535, "lb_real": 0.2339003808053967, "lb_pct": 1.1262285778528782, "mb_meta": 95534.93605677066, "mb_meta_prop": 15408.860654317848, "mb_real_verba": 0, "mb_real_total": 14146.227199999998, "mb_pct": 0.9180579614129979, "day_meta": 14838.709677419354, "day_real": 12089.859999999982, "day_pct": 0.8147514347826076, "loja": "IMBIRIBEIRA"}, {"estoque_real": 33750.01999999999, "pct_venda": 0.08881584210526312, "fat_meta": 380000, "fat_meta_prop": 58461.53846153846, "fat_real": 26461.260000000002, "fat_pct": 0.4526268157894737, "lb_meta": 0.20324139486454318, "lb_real": 0.08435425977447784, "lb_pct": 0.4150446803944564, "mb_meta": 77231.73004852641, "mb_meta_prop": 11881.804622850217, "mb_real_verba": 463.78, "mb_real_total": 2232.12, "mb_pct": 0.18786035209730262, "day_meta": 14615.384615384615, "day_real": 24952.07, "day_pct": 1.707246894736842, "loja": "LOJÃO"}], "total": {"estoque_real": 465402.6899999998, "pct_venda": 0.2778523522388059, "fat_meta": 1675000, "fat_meta_prop": 263014.88833746896, "fat_real": 213808.00000000038, "fat_pct": 0.8129121562337861, "lb_meta": 0.1919592036449535, "lb_real": 0.1851859051111275, "lb_pct": 0.9647149060570503, "mb_meta": 321531.6661052971, "mb_meta_prop": 50555.3426965229, "mb_real_verba": 463.78, "mb_real_total": 39594.22800000002, "mb_pct": 0.7831858293925329, "day_meta": 59987.59305210919, "day_real": 58776.02999999996, "day_pct": 0.9798031061013437, "label": "TOTAL CAROL - Laticínios"}}, {"cod": "C10", "nome": "HEMILI - HIGIENE", "lojas": [{"estoque_real": 346616.3799999998, "pct_venda": 4.56074184210526, "fat_meta": 76000, "fat_meta_prop": 11692.307692307691, "fat_real": 11797.139999999885, "fat_pct": 1.0089659210526218, "lb_meta": 0.219, "lb_real": 0.22747547286884978, "lb_pct": 1.0387007893554785, "mb_meta": 16644, "mb_meta_prop": 2560.6153846153848, "mb_real_verba": 0, "mb_real_total": 2683.5599999999963, "mb_pct": 1.0480136986301354, "day_meta": 2923.076923076923, "day_real": 2410.309999999998, "day_pct": 0.8245797368421047, "loja": "CEASA"}, {"estoque_real": 512076.2799999996, "pct_venda": 2.560381399999998, "fat_meta": 200000, "fat_meta_prop": 32258.064516129034, "fat_real": 34974.2200000009, "fat_pct": 1.084200820000028, "lb_meta": 0.225, "lb_real": 0.22063422715359526, "lb_pct": 0.98059656512709, "mb_meta": 45000, "mb_meta_prop": 7258.064516129032, "mb_real_verba": 0, "mb_real_total": 7716.510000000014, "mb_pct": 1.063163600000002, "day_meta": 6451.612903225807, "day_real": 5425.719999999972, "day_pct": 0.8409865999999956, "loja": "CASA AMARELA"}, {"estoque_real": 600122.3799999988, "pct_venda": 2.8577256190476135, "fat_meta": 210000, "fat_meta_prop": 33870.967741935485, "fat_real": 41862.360000000546, "fat_pct": 1.235936342857159, "lb_meta": 0.237, "lb_real": 0.21119855641201063, "lb_pct": 0.8911331494177664, "mb_meta": 49770, "mb_meta_prop": 8027.41935483871, "mb_real_verba": 0, "mb_real_total": 8841.270000000013, "mb_pct": 1.1013838456901763, "day_meta": 6774.193548387097, "day_real": 6117.42999999996, "day_pct": 0.9030491904761846, "loja": "IMBIRIBEIRA"}, {"estoque_real": 37419.79, "pct_venda": 4.563389024390244, "fat_meta": 8200, "fat_meta_prop": 1261.5384615384614, "fat_real": 953.4800000000001, "fat_pct": 0.755807317073171, "lb_meta": 0.08, "lb_real": 0.0945379032596384, "lb_pct": 1.18172379074548, "mb_meta": 656, "mb_meta_prop": 100.92307692307692, "mb_real_verba": 0, "mb_real_total": 90.14000000000003, "mb_pct": 0.8931554878048784, "day_meta": 315.38461538461536, "day_real": 203.16000000000005, "day_pct": 0.6441658536585368, "loja": "LOJÃO"}], "total": {"estoque_real": 1496234.8299999982, "pct_venda": 3.027589700526099, "fat_meta": 494200, "fat_meta_prop": 79082.87841191067, "fat_real": 89587.20000000134, "fat_pct": 1.1328267483307564, "lb_meta": 0.22677053824362606, "lb_real": 0.21578395127875116, "lb_pct": 0.9515519650393399, "mb_meta": 112070, "mb_meta_prop": 17947.022332506203, "mb_real_verba": 0, "mb_real_total": 19331.480000000025, "mb_pct": 1.0771413575936912, "day_meta": 16464.26799007444, "day_real": 14156.61999999993, "day_pct": 0.85983901674428, "label": "TOTAL HEMILI - Higiene"}}, {"cod": "C11", "nome": "RAFAELA", "lojas": [{"estoque_real": 162165.51000000007, "pct_venda": 0.15015325000000007, "fat_meta": 1080000, "fat_meta_prop": 166153.84615384616, "fat_real": 181144.83000000005, "fat_pct": 1.0902235138888892, "lb_meta": 0.04, "lb_real": 0.018498425265573378, "lb_pct": 0.46246063163933443, "mb_meta": 43200, "mb_meta_prop": 6646.153846153846, "mb_real_verba": 0, "mb_real_total": 3350.894099999995, "mb_pct": 0.5041854548611104, "day_meta": 41538.46153846154, "day_real": 61284.509999999995, "day_pct": 1.475367833333333, "loja": "CEASA"}, {"estoque_real": 207752.30000000013, "pct_venda": 0.25969037500000014, "fat_meta": 800000, "fat_meta_prop": 129032.25806451614, "fat_real": 125170.33000000047, "fat_pct": 0.9700700575000035, "lb_meta": 0.09, "lb_real": 0.10020063580562547, "lb_pct": 1.113340397840283, "mb_meta": 72000, "mb_meta_prop": 11612.90322580645, "mb_real_verba": 0, "mb_real_total": 12542.146650000002, "mb_pct": 1.0800181837500002, "day_meta": 25806.451612903227, "day_real": 23448.359999999986, "day_pct": 0.9086239499999994, "loja": "CASA AMARELA"}, {"estoque_real": 307676.3399999998, "pct_venda": 0.3775169815950918, "fat_meta": 815000, "fat_meta_prop": 131451.61290322582, "fat_real": 110526.87000000091, "fat_pct": 0.8408179067484731, "lb_meta": 0.099, "lb_real": 0.1340355340742017, "lb_pct": 1.353894283577795, "mb_meta": 80685, "mb_meta_prop": 13013.709677419354, "mb_real_verba": 0, "mb_real_total": 14814.528049999986, "mb_pct": 1.1383785574766057, "day_meta": 26290.322580645163, "day_real": 21737.71999999995, "day_pct": 0.8268335214723906, "loja": "IMBIRIBEIRA"}, {"estoque_real": 69272.94, "pct_venda": 0.08726749811035525, "fat_meta": 793800, "fat_meta_prop": 122123.07692307692, "fat_real": 144076.10000000006, "fat_pct": 1.1797614638447977, "lb_meta": 0.09505823735499452, "lb_real": -0.14196997281297866, "lb_pct": -1.4935052107351043, "mb_meta": 75457.22881239465, "mb_meta_prop": 11608.8044326761, "mb_real_verba": 4996.79, "mb_real_total": -20454.480000000003, "mb_pct": -1.76197989367668, "day_meta": 30530.76923076923, "day_real": 58488.82, "day_pct": 1.9157335852859663, "loja": "LOJÃO"}], "total": {"estoque_real": 746867.0899999999, "pct_venda": 0.21407563918825953, "fat_meta": 3488800, "fat_meta_prop": 548760.7940446651, "fat_real": 560918.1300000015, "fat_pct": 1.0221541627741484, "lb_meta": 0.07777523183111519, "lb_real": 0.018279118202151803, "lb_pct": 0.235024927239612, "mb_meta": 271342.22881239466, "mb_meta_prop": 42881.571182055755, "mb_real_verba": 4996.79, "mb_real_total": 10253.08879999998, "mb_pct": 0.23910245164455385, "day_meta": 124166.00496277917, "day_real": 164959.40999999995, "day_pct": 1.3285392410704466, "label": "TOTAL RAFAELA"}}, {"cod": "C12", "nome": "ANDRYO", "lojas": [{"estoque_real": 244531.62999999986, "pct_venda": 3.9440585483870945, "fat_meta": 62000, "fat_meta_prop": 9538.461538461539, "fat_real": 10470.619999999924, "fat_pct": 1.0977262903225726, "lb_meta": 0.202, "lb_real": 0.2071224053589962, "lb_pct": 1.0253584423712683, "mb_meta": 12524, "mb_meta_prop": 1926.7692307692307, "mb_real_verba": 0, "mb_real_total": 2168.699999999997, "mb_pct": 1.125562919195144, "day_meta": 2384.6153846153848, "day_real": 2803.129999999997, "day_pct": 1.1755061290322566, "loja": "CEASA"}, {"estoque_real": 308123.8399999998, "pct_venda": 2.1249919999999984, "fat_meta": 145000, "fat_meta_prop": 23387.096774193546, "fat_real": 23909.4500000002, "fat_pct": 1.0223351034482846, "lb_meta": 0.24262053797475489, "lb_real": 0.21504049654006982, "lb_pct": 0.8863243744123804, "mb_meta": 35179.97800633946, "mb_meta_prop": 5674.190001022494, "mb_real_verba": 0, "mb_real_total": 5141.5000000000155, "mb_pct": 0.906120521003617, "day_meta": 4677.419354838709, "day_real": 4616.579999999984, "day_pct": 0.9869929655172379, "loja": "CASA AMARELA"}, {"estoque_real": 482146.17000000033, "pct_venda": 2.5376114210526333, "fat_meta": 190000, "fat_meta_prop": 30645.16129032258, "fat_real": 36257.4000000005, "fat_pct": 1.1831362105263323, "lb_meta": 0.239, "lb_real": 0.2125921880774659, "lb_pct": 0.8895070630856314, "mb_meta": 45410, "mb_meta_prop": 7324.193548387097, "mb_real_verba": 0, "mb_real_total": 7708.04000000002, "mb_pct": 1.0524080158555411, "day_meta": 6129.032258064516, "day_real": 7608.109999999966, "day_pct": 1.2413232105263103, "loja": "IMBIRIBEIRA"}, {"estoque_real": 22592.260000000013, "pct_venda": 5.648065000000003, "fat_meta": 4000, "fat_meta_prop": 615.3846153846154, "fat_real": 381.80000000000007, "fat_pct": 0.6204250000000001, "lb_meta": 0.24, "lb_real": 0.20974332111052899, "lb_pct": 0.8739305046272041, "mb_meta": 960, "mb_meta_prop": 147.69230769230768, "mb_real_verba": 0, "mb_real_total": 80.07999999999998, "mb_pct": 0.5422083333333333, "day_meta": 153.84615384615384, "day_real": 111.36000000000001, "day_pct": 0.7238400000000001, "loja": "LOJÃO"}], "total": {"estoque_real": 1057393.9, "pct_venda": 2.6368925187032417, "fat_meta": 401000, "fat_meta_prop": 64186.104218362285, "fat_real": 71019.27000000063, "fat_pct": 1.10645864653807, "lb_meta": 0.23459844889361461, "lb_real": 0.21259469436956896, "lb_pct": 0.9062067348364102, "mb_meta": 94073.97800633946, "mb_meta_prop": 15072.84508787113, "mb_real_verba": 0, "mb_real_total": 15098.320000000032, "mb_pct": 1.0016901196808161, "day_meta": 13344.913151364764, "day_real": 15139.179999999948, "day_pct": 1.1344532428412009, "label": "TOTAL ISAIAS - Bazar"}}, {"cod": "C16", "nome": "ISAIAS - BAZAR", "lojas": [{"estoque_real": 37730.07999999998, "pct_venda": 0.5548541176470585, "fat_meta": 68000, "fat_meta_prop": 10461.538461538461, "fat_real": 9420.05999999994, "fat_pct": 0.9004469117647002, "lb_meta": 0.175, "lb_real": 0.11284853811971536, "lb_pct": 0.6448487892555164, "mb_meta": 11900, "mb_meta_prop": 1830.7692307692307, "mb_real_verba": 0, "mb_real_total": 1063.039999999999, "mb_pct": 0.5806521008403356, "day_meta": 2615.3846153846152, "day_real": 1803.3500000000015, "day_pct": 0.6895161764705888, "loja": "CEASA"}, {"estoque_real": 86623.7799999999, "pct_venda": 0.5661684967320255, "fat_meta": 153000, "fat_meta_prop": 24677.41935483871, "fat_real": 27973.290000000376, "fat_pct": 1.1335581568627604, "lb_meta": 0.19662281596091669, "lb_real": 0.1931960809758144, "lb_pct": 0.9825720378972528, "mb_meta": 30083.29084202025, "mb_meta_prop": 4852.143684196815, "mb_real_verba": 0, "mb_real_total": 5404.330000000012, "mb_pct": 1.1138025482636962, "day_meta": 4935.4838709677415, "day_real": 5360.1999999999825, "day_pct": 1.0860535947712384, "loja": "CASA AMARELA"}, {"estoque_real": 107178.26000000005, "pct_venda": 0.4700800877192985, "fat_meta": 228000, "fat_meta_prop": 36774.1935483871, "fat_real": 44171.86000000038, "fat_pct": 1.201164614035098, "lb_meta": 0.175, "lb_real": 0.13906500654488987, "lb_pct": 0.7946571802565137, "mb_meta": 39900, "mb_meta_prop": 6435.4838709677415, "mb_real_verba": 0, "mb_real_total": 6142.760000000012, "mb_pct": 0.9545140852130345, "day_meta": 7354.8387096774195, "day_real": 7466.939999999961, "day_pct": 1.0152418421052578, "loja": "IMBIRIBEIRA"}, {"estoque_real": 607.7299999999999, "pct_venda": 0.15193249999999997, "fat_meta": 4000, "fat_meta_prop": 615.3846153846154, "fat_real": 2698.17, "fat_pct": 4.38452625, "lb_meta": 0.15774991989746906, "lb_real": 0.08150338933425248, "lb_pct": 0.5166620013957935, "mb_meta": 630.9996795898762, "mb_meta_prop": 97.07687378305788, "mb_real_verba": 0, "mb_real_total": 219.91000000000003, "mb_pct": 2.265318107497394, "day_meta": 153.84615384615384, "day_real": 2452.9, "day_pct": 15.943850000000001, "loja": "LOJÃO"}], "total": {"estoque_real": 232139.84999999995, "pct_venda": 0.5124499999999999, "fat_meta": 453000, "fat_meta_prop": 72528.53598014887, "fat_real": 84263.38000000069, "fat_pct": 1.1617962345615753, "lb_meta": 0.1821507517033336, "lb_real": 0.15226116018607275, "lb_pct": 0.8359073940801429, "mb_meta": 82514.29052161012, "mb_meta_prop": 13215.473659716845, "mb_real_verba": 0, "mb_real_total": 12830.040000000023, "mb_pct": 0.9708346692943974, "day_meta": 15059.55334987593, "day_real": 17083.389999999945, "day_pct": 1.1343888894381244, "label": "TOTAL ANDRYO - Iogurtes"}}, {"cod": "C17", "nome": "HEMILI", "lojas": [{"estoque_real": 612897.77, "pct_venda": 2.6647729130434783, "fat_meta": 230000, "fat_meta_prop": 35384.61538461538, "fat_real": 28612.560000000376, "fat_pct": 0.8086158260869671, "lb_meta": 0.11, "lb_real": 0.11868703813989176, "lb_pct": 1.078973073999016, "mb_meta": 25300, "mb_meta_prop": 3892.3076923076924, "mb_real_verba": 0, "mb_real_total": 3395.939999999986, "mb_pct": 0.8724747035573086, "day_meta": 8846.153846153846, "day_real": 5868.449999999977, "day_pct": 0.6633899999999975, "loja": "CEASA"}, {"estoque_real": 430221.06999999995, "pct_venda": 1.2653560882352939, "fat_meta": 340000, "fat_meta_prop": 54838.709677419356, "fat_real": 69606.43000000031, "fat_pct": 1.2692937235294175, "lb_meta": 0.149, "lb_real": 0.08594263489737888, "lb_pct": 0.576796207364959, "mb_meta": 50660, "mb_meta_prop": 8170.967741935484, "mb_real_verba": 0, "mb_real_total": 5982.159999999987, "mb_pct": 0.7321238057639148, "day_meta": 10967.741935483871, "day_real": 10152.249999999947, "day_pct": 0.9256463235294069, "loja": "CASA AMARELA"}, {"estoque_real": 828481.329999999, "pct_venda": 1.9267007674418581, "fat_meta": 430000, "fat_meta_prop": 69354.83870967741, "fat_real": 69859.07000000007, "fat_pct": 1.007270311627908, "lb_meta": 0.139, "lb_real": 0.14937301627405042, "lb_pct": 1.074626016360075, "mb_meta": 59770.00000000001, "mb_meta_prop": 9640.322580645163, "mb_real_verba": 0, "mb_real_total": 10435.060000000038, "mb_pct": 1.0824388823824698, "day_meta": 13870.967741935483, "day_real": 14528.839999999944, "day_pct": 1.047427999999996, "loja": "IMBIRIBEIRA"}, {"estoque_real": 18887.86, "pct_venda": 1.5739883333333333, "fat_meta": 12000, "fat_meta_prop": 1846.1538461538462, "fat_real": 575.5699999999999, "fat_pct": 0.3117670833333333, "lb_meta": 0.156, "lb_real": 0.16206543079034696, "lb_pct": 1.0388809666047882, "mb_meta": 1872, "mb_meta_prop": 288, "mb_real_verba": 0, "mb_real_total": 93.27999999999999, "mb_pct": 0.32388888888888884, "day_meta": 461.53846153846155, "day_real": 166.3, "day_pct": 0.3603166666666667, "loja": "LOJÃO"}], "total": {"estoque_real": 1890488.029999999, "pct_venda": 1.8680711758893271, "fat_meta": 1012000, "fat_meta_prop": 161424.317617866, "fat_real": 168653.63000000076, "fat_pct": 1.0447845311587343, "lb_meta": 0.1359703557312253, "lb_real": 0.11803149448962302, "lb_pct": 0.8680678509287547, "mb_meta": 137602, "mb_meta_prop": 21991.59801488834, "mb_real_verba": 0, "mb_real_total": 19906.44000000001, "mb_pct": 0.9051838791580005, "day_meta": 34146.40198511166, "day_real": 30715.83999999987, "day_pct": 0.8995337199331406, "label": "TOTAL HEMILI - Limpeza"}}, {"cod": "C18", "nome": "ISAIAS", "lojas": [{"estoque_real": 548626.3800000004, "pct_venda": 2.4937562727272744, "fat_meta": 220000, "fat_meta_prop": 33846.153846153844, "fat_real": 31844.64000000024, "fat_pct": 0.9408643636363708, "lb_meta": 0.13, "lb_real": 0.13180300672263767, "lb_pct": 1.0138692824818283, "mb_meta": 28600, "mb_meta_prop": 4400, "mb_real_verba": 253.68, "mb_real_total": 4197.219300000008, "mb_pct": 0.9539134772727291, "day_meta": 8461.538461538461, "day_real": 8696.51999999997, "day_pct": 1.0277705454545418, "loja": "CEASA"}, {"estoque_real": 585380.5399999992, "pct_venda": 1.6967551884057948, "fat_meta": 345000, "fat_meta_prop": 55645.16129032258, "fat_real": 72449.49000000046, "fat_pct": 1.3019908347826168, "lb_meta": 0.162, "lb_real": 0.16076082799202485, "lb_pct": 0.9923507900742274, "mb_meta": 55890, "mb_meta_prop": 9014.516129032258, "mb_real_verba": 0, "mb_real_total": 11647.039999999997, "mb_pct": 1.2920316335659328, "day_meta": 11129.032258064517, "day_real": 19387.930000000044, "day_pct": 1.7421038550724677, "loja": "CASA AMARELA"}, {"estoque_real": 946396.7899999998, "pct_venda": 1.7856543207547166, "fat_meta": 530000, "fat_meta_prop": 85483.87096774194, "fat_real": 83849.510000001, "fat_pct": 0.9808810603773701, "lb_meta": 0.152, "lb_real": 0.15934805701309188, "lb_pct": 1.0483424803492887, "mb_meta": 80560, "mb_meta_prop": 12993.548387096773, "mb_real_verba": 148.5, "mb_real_total": 13361.256499999976, "mb_pct": 1.0282992837636526, "day_meta": 17096.774193548386, "day_real": 22183.379999999946, "day_pct": 1.2975184528301855, "loja": "IMBIRIBEIRA"}, {"estoque_real": 13960.879999999997, "pct_venda": 1.9944114285714283, "fat_meta": 7000, "fat_meta_prop": 1076.923076923077, "fat_real": 965.2300000000001, "fat_pct": 0.8962850000000001, "lb_meta": 0.24, "lb_real": 0.13956259129948304, "lb_pct": 0.5815107970811794, "mb_meta": 1680, "mb_meta_prop": 258.46153846153845, "mb_real_verba": 0, "mb_real_total": 134.71000000000004, "mb_pct": 0.521199404761905, "day_meta": 269.2307692307692, "day_real": 550.42, "day_pct": 2.0444171428571427, "loja": "LOJÃO"}], "total": {"estoque_real": 2094364.5899999992, "pct_venda": 1.9005123321234112, "fat_meta": 1102000, "fat_meta_prop": 176052.10918114142, "fat_real": 189108.8700000017, "fat_pct": 1.074164182863757, "lb_meta": 0.15129764065335752, "lb_real": 0.1551499186685411, "lb_pct": 1.0254615868333972, "mb_meta": 166730, "mb_meta_prop": 26666.52605459057, "mb_real_verba": 402.18, "mb_real_total": 29340.22579999998, "mb_pct": 1.100264269141617, "day_meta": 36956.57568238213, "day_real": 50818.249999999956, "day_pct": 1.3750800517004051, "label": "TOTAL ISAIAS"}}]}, "distribuicao": {"total": {"estoque_real": 113172273.11, "pct_venda": 1.1343203259232661, "fat_meta": 99770999.88743022, "fat_meta_prop": 19954199.977486044, "fat_real": 20081554.2899999, "fat_pct": 1.0063823311712594, "lb_meta": 3.153092976937192, "lb_real": -4.05817914749138, "lb_pct": -1.2870470922279489, "mb_meta": 629174.4780941152, "mb_real_total": -814080.9786889364, "mb_pct": -1.2938874780091796, "day_meta": 4988549.994371511, "day_real": 6579640.649999993, "day_lb": -7.8453778246994075, "day_lb_pct": -2.4881530237399287, "nome": "TOTAL DISTRIBUIÇÃO", "cod": null}, "gestores": [{"estoque_real": 29404018.84, "pct_venda": 4.007370749021422, "fat_meta": 7337484.021706827, "fat_meta_prop": 1467496.8043413654, "fat_real": 1491962.0299999975, "fat_pct": 1.0166713996148105, "lb_meta": 2.95, "lb_real": -2.572994997734743, "lb_pct": -0.8722016941473704, "mb_meta": 43291.15572807028, "mb_real_total": -38388.108400001656, "mb_pct": -0.8867425171352159, "day_meta": 366874.20108534134, "day_real": 426403.03, "day_lb": -1.8346630416767225, "day_lb_pct": -0.6219196751446516, "nome": "DIOGO PADILHA", "cod": "C01"}, {"estoque_real": 1190471.6800000004, "pct_venda": 0.7281792215438908, "fat_meta": 1634860.8210434155, "fat_meta_prop": 326972.16420868307, "fat_real": 280554.5399999994, "fat_pct": 0.8580379943931294, "lb_meta": 3.55, "lb_real": -1.7131206645240604, "lb_pct": -0.48256920127438324, "mb_meta": 11607.51182940825, "mb_real_total": -4806.237800000411, "mb_pct": -0.4140627096173662, "day_meta": 81743.04105217077, "day_real": 83996.89000000004, "day_lb": -2.783457578012658, "day_lb_pct": -0.7840725571866642, "nome": "RONALDO MORAIS", "cod": "C02"}, {"estoque_real": 10616305.370000001, "pct_venda": 0.5986407095941952, "fat_meta": 17734018.418487694, "fat_meta_prop": 3546803.683697539, "fat_real": 3545378.2999999584, "fat_pct": 0.9995981216259213, "lb_meta": 3.7, "lb_real": 0.43098544127518296, "lb_pct": 0.11648255169599539, "mb_meta": 131231.73629680893, "mb_real_total": 15280.0643111294, "mb_pct": 0.11643573987751128, "day_meta": 886700.9209243847, "day_real": 1410854.1699999927, "day_lb": -8.183667430348862, "day_lb_pct": -2.2118020082023953, "nome": "BARBARA MIRANDA", "cod": "C03"}, {"estoque_real": 5486978.020000003, "pct_venda": 0.6321428843839441, "fat_meta": 8679964.855330685, "fat_meta_prop": 1735992.971066137, "fat_real": 1630845.629999983, "fat_pct": 0.9394310099069242, "lb_meta": 3.7, "lb_real": -0.782763197520584, "lb_pct": -0.21155762095150918, "mb_meta": 64231.739929447074, "mb_real_total": -12765.659400012579, "mb_pct": -0.19874378950398253, "day_meta": 433998.24276653427, "day_real": 631914.950000002, "day_lb": -3.2498390171014755, "day_lb_pct": -0.8783348694868852, "nome": "BRUNO OLIVEIRA", "cod": "C05"}, {"estoque_real": 38368766.800000004, "pct_venda": 1.4587692126867522, "fat_meta": 26302150.104561534, "fat_meta_prop": 5260430.020912306, "fat_real": 5434239.849999987, "fat_pct": 1.0330409925418107, "lb_meta": 2.95, "lb_real": -5.308331250782413, "lb_pct": -1.7994343222991231, "mb_meta": 155182.68561691305, "mb_real_total": -288467.4522000206, "mb_pct": -1.8588894183216862, "day_meta": 1315107.5052280766, "day_real": 1552262.6699999988, "day_lb": -5.1076131979649695, "day_lb_pct": -1.7313943043949047, "nome": "VINÍCIUS JORDÃO", "cod": "C06"}, {"estoque_real": 2408059.63, "pct_venda": 0.9547110384134584, "fat_meta": 2522291.597258287, "fat_meta_prop": 504458.3194516574, "fat_real": 585277.2900000004, "fat_pct": 1.1602094116243193, "lb_meta": 4.05, "lb_real": -4.526683377719966, "lb_pct": -1.1176995994370287, "mb_meta": 20430.561937792125, "mb_real_total": -26493.649799999897, "mb_pct": -1.2967655946355725, "day_meta": 126114.57986291435, "day_real": 146140.45000000004, "day_lb": -4.073824666613427, "day_lb_pct": -1.0058826337317104, "nome": "GERALDO JOSÉ", "cod": "C07"}, {"estoque_real": 2307697.88, "pct_venda": 1.1771010489153015, "fat_meta": 1960492.5865341325, "fat_meta_prop": 392098.5173068265, "fat_real": 372866.5999999998, "fat_pct": 0.9509513133614396, "lb_meta": 4.05, "lb_real": -4.279278970012344, "lb_pct": -1.0566120913610726, "mb_meta": 15879.989950926472, "mb_real_total": -15956.002000000037, "mb_pct": -1.0047866559933893, "day_meta": 98024.62932670662, "day_real": 95689.09000000003, "day_lb": 0.19799958386064312, "day_lb_pct": 0.0488887861384304, "nome": "ELISANGELA CABRAL", "cod": "C08"}, {"estoque_real": 8186549.420000002, "pct_venda": 0.5197618619227119, "fat_meta": 15750577.36963651, "fat_meta_prop": 3150115.473927302, "fat_real": 2717126.1099999887, "fat_pct": 0.8625480978360778, "lb_meta": 3, "lb_real": -7.6344950842204575, "lb_pct": -2.5448316947401524, "mb_meta": 94503.46421781906, "mb_real_total": -207438.85930001966, "mb_pct": -2.19503973761108, "day_meta": 787528.8684818255, "day_real": 1254921.3399999982, "day_lb": -20.12291840538787, "day_lb_pct": -6.707639468462624, "nome": "CAROL - LATICÍNIOS", "cod": "C09"}, {"estoque_real": 15139282.789999992, "pct_venda": 0.8481790008193695, "fat_meta": 17849160.112871144, "fat_meta_prop": 3569832.0225742287, "fat_real": 4022711.439999985, "fat_pct": 1.1268629488900104, "lb_meta": 2.6, "lb_real": -5.86706497893898, "lb_pct": -2.256563453438069, "mb_meta": 92815.63258692995, "mb_real_total": -235150.62410001107, "mb_pct": -2.5335239069751743, "day_meta": 892458.0056435572, "day_real": 977458.060000001, "day_lb": -3.3215080450612082, "day_lb_pct": -1.2775030942543109, "nome": "RAFAELA BEZERRA", "cod": "C11"}, {"estoque_real": 59627.18, "pct_venda": null, "fat_meta": null, "fat_meta_prop": null, "fat_real": 0, "fat_pct": null, "lb_meta": null, "lb_real": 0, "lb_pct": null, "mb_meta": 0, "mb_real_total": 0, "mb_pct": null, "day_meta": 0, "day_real": 0, "day_lb": 0, "day_lb_pct": 0, "nome": "ANDRYO - Iogurtes", "cod": "C16"}, {"estoque_real": 4515.5, "pct_venda": null, "fat_meta": null, "fat_meta_prop": null, "fat_real": 592.5, "fat_pct": null, "lb_meta": null, "lb_real": 17.814345991561183, "lb_pct": null, "mb_meta": 0, "mb_real_total": 105.55, "mb_pct": null, "day_meta": 0, "day_real": 0, "day_lb": 0, "day_lb_pct": 0, "nome": "ISAIAS", "cod": "C18"}]}};
+
+const fmtBRL = (v) => {
+  if(v===null || v===undefined || isNaN(v)) return '—';
+  return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+};
+const fmtBRLc = (v) => { // compact for cards
+  if(v===null || v===undefined || isNaN(v)) return '—';
+  const abs = Math.abs(v);
+  if(abs>=1000000) return (v/1000000).toLocaleString('pt-BR',{maximumFractionDigits:2})+' mi';
+  if(abs>=1000) return (v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' mil';
+  return v.toLocaleString('pt-BR',{maximumFractionDigits:0});
+};
+const fmtBRLfull = (v) => { // valor cheio, sem abreviação — igual ao que está na planilha
+  if(v===null || v===undefined || isNaN(v)) return '—';
+  return v.toLocaleString('pt-BR',{maximumFractionDigits:0});
+};
+const fmtPct = (v,d=1) => {
+  if(v===null || v===undefined || isNaN(v)) return '—';
+  return (v*100).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d})+'%';
+};
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const fmtNum = (v,d=2) => {
+  if(v===null || v===undefined || isNaN(v)) return '—';
+  return v.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+};
+
+function ritmo(row){
+  if(!row.fat_meta_prop) return null;
+  return row.fat_real / row.fat_meta_prop;
+}
+function gap(row){
+  if(row.fat_meta===null||row.fat_meta===undefined) return null;
+  return row.fat_meta - (row.fat_real||0);
+}
+function pillClass(v, thresh=1){
+  if(v===null||v===undefined||isNaN(v)) return 'warn';
+  return v>=thresh ? 'good' : 'bad';
+}
+
+/* Splash/alerta individual do gestor — em 2ª pessoa, aponta o indicador
+   mais crítico entre os informados (checks), na ordem de prioridade dada.
+   < 90%  = alerta vermelho
+   90-100% = atenção amarela
+   >= 100% = positivo verde                                              */
+function gestorAlertHTML(nome, checks){
+  const valid = checks.filter(c => c.value!==null && c.value!==undefined && !isNaN(c.value));
+  if(valid.length===0){
+    return `<div class="gestor-alert gestor-alert-warn">
+      <span class="gestor-alert-icon">ℹ️</span>
+      <div class="gestor-alert-text">Ainda não há dados suficientes dos seus indicadores este mês.</div>
+    </div>`;
+  }
+  const red = valid.find(c => c.value < 0.90);
+  const yellow = !red && valid.find(c => c.value < 1.00);
+  const chosen = red || yellow || valid[0];
+  const level = red ? 'red' : (yellow ? 'yellow' : 'green');
+
+  let msg;
+  if(level==='red'){
+    msg = `Você precisa se atentar à sua ${chosen.label}, que ainda está em ${fmtPct(chosen.value)} da meta.`;
+  } else if(level==='yellow'){
+    msg = `Você está quase lá — sua ${chosen.label} está em ${fmtPct(chosen.value)} da meta. Falta pouco para bater 100%.`;
+  } else {
+    msg = `Sua ${chosen.label} está em ${fmtPct(chosen.value)} da meta — dentro do esperado.`;
+  }
+  const icon = level==='red' ? '⚠️' : (level==='yellow' ? '🟡' : '✅');
+  return `<div class="gestor-alert gestor-alert-${level}">
+    <span class="gestor-alert-icon">${icon}</span>
+    <div class="gestor-alert-text"><strong>Oi, ${nome}!</strong> ${msg}</div>
+  </div>`;
+}
+
+function gapPieHTML(total){
+  const meta = total.fat_meta, real = total.fat_real;
+  let frac = 0;
+  if(meta){ frac = clamp01((real||0)/meta); }
+  const pct = Math.round(frac*100);
+  const gapFrac = 1 - frac;
+  return `
+  <div class="gap-pie-group">
+    <div class="gap-pie-wrap">
+      <div class="gap-pie" style="background:conic-gradient(var(--navy-700) 0turn ${frac}turn, var(--red-200) ${frac}turn 1turn);"></div>
+      <div class="gap-pie-hole">${pct}%</div>
+    </div>
+    <div class="gap-pie-legend">
+      <span><i style="background:var(--navy-700)"></i>Realizado</span>
+      <span><i style="background:var(--red-200)"></i>Gap ${Math.round(gapFrac*100)}%</span>
+    </div>
+  </div>`;
+}
+
+function kpiCardsHTML(total){
+  const rtm = ritmo(total);
+  const g = gap(total);
+  const fatPct = total.fat_pct;
+
+  const gapIsPositive = g!==null && g>0; // still needs to hit target
+  const gapLabel = g===null ? '—' : (g<=0 ? ('Meta batida · superávit de ' + fmtBRL(Math.abs(g))) : ('Faltam ' + fmtBRL(g) + ' no mês'));
+
+  return `
+  <div class="kpi-grid kpi-grid-3">
+    <div class="kpi-card">
+      <div class="bar-top" style="background:var(--navy-700)"></div>
+      <div class="kpi-label">Faturamento — Real / Meta</div>
+      <div class="kpi-value">${fmtPct(fatPct)}</div>
+      <div class="kpi-sub">${fmtBRLc(total.fat_real)} de ${fmtBRLc(total.fat_meta)} (meta do mês)</div>
+      <div class="kpi-foot"><span class="pill ${pillClass(fatPct)}">${fatPct>=1?'Meta atingida':'Abaixo da meta'}</span></div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="bar-top" style="background:var(--navy-800)"></div>
+      <div class="kpi-label">Ritmo do mês — vs. Meta Proporcional</div>
+      <div class="kpi-value">${fmtPct(rtm)}</div>
+      <div class="kpi-sub">${fmtBRLc(total.fat_real)} de ${fmtBRLc(total.fat_meta_prop)} (proporcional ao dia)</div>
+      <div class="kpi-foot"><span class="pill ${pillClass(rtm)}">${rtm>=1?'No ritmo ou acima':'Abaixo do ritmo'}</span></div>
+    </div>
+
+    <div class="kpi-card kpi-card-gap">
+      <div class="bar-top" style="background:${gapIsPositive?'var(--red-600)':'var(--green-600)'}"></div>
+      <div class="kpi-gap-row">
+        <div class="kpi-gap-text">
+          <div class="kpi-label">Gap para bater a meta do mês</div>
+          <div class="kpi-value" style="color:${gapIsPositive?'var(--red-600)':'var(--green-600)'}">${g===null?'—':fmtBRLc(Math.abs(g))}</div>
+          <div class="kpi-sub">${gapLabel}</div>
+          <div class="kpi-foot"><span class="pill ${gapIsPositive?'bad':'good'}">${gapIsPositive?'Meta ainda não batida':'Meta superada'}</span></div>
+        </div>
+        ${gapPieHTML(total)}
+      </div>
+    </div>
+  </div>`;
+}
+
+function flagsStripHTML(bandeiras){
+  return `<div class="flags-grid">` + bandeiras.map(b=>{
+    const pct = clamp01(b.fat_pct||0);
+    const over = (b.fat_pct||0) >= 1;
+    return `
+    <div class="flag-card">
+      <div class="flag-name">${b.label} <span class="mono" style="font-size:11px;color:${over?'var(--green-600)':'var(--red-600)'}">${fmtPct(b.fat_pct)}</span></div>
+      <div class="flag-numbers"><span>${fmtBRLc(b.fat_real)}</span><span>meta ${fmtBRLc(b.fat_meta)}</span></div>
+      <div class="track"><span class="${over?'over':'under'}" style="width:${pct*100}%"></span></div>
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+/* Análise Geral de Lojas — aba PAD LOJAS, linhas 92 a 95 (bandeiras)
+   Cartões no mesmo estilo dos KPI cards: Faturamento (Meta / Meta Prop. / Realizado)
+   e, dentro do mesmo cartão, Margem (Meta / Meta Prop. / Realizado) */
+function analiseGeralLojasHTML(bandeiras, total){
+  const rows = bandeiras;
+  return `<div class="kpi-grid analise-grid">
+    ${rows.map(b=>{
+      const fatOver = (b.fat_pct||0) >= 1;
+      const mbOver = (b.mb_pct||0) >= 1;
+      return `
+      <div class="kpi-card analise-card">
+        <div class="bar-top" style="background:${fatOver?'var(--navy-700)':'var(--red-500)'}"></div>
+        <div class="kpi-label">${b.label} &middot; Faturamento</div>
+        <div class="kpi-value">${fmtPct(b.fat_pct)}</div>
+        <div class="kpi-sub">${fmtBRLc(b.fat_real)} de ${fmtBRLc(b.fat_meta)} (meta) &middot; prop. ${fmtBRLc(b.fat_meta_prop)}</div>
+        <div class="kpi-foot"><span class="pill ${fatOver?'good':'bad'}">${fatOver?'Meta atingida':'Abaixo da meta'}</span></div>
+
+        <div class="kpi-divider"></div>
+
+        <div class="kpi-label">Margem</div>
+        <div class="kpi-value kpi-value-sm">${fmtPct(b.mb_pct)}</div>
+        <div class="kpi-sub">${fmtBRLc(b.mb_real_total)} de ${fmtBRLc(b.mb_meta)} (meta) &middot; prop. ${fmtBRLc(b.mb_meta_prop)}</div>
+        <div class="kpi-foot"><span class="pill ${mbOver?'good':'bad'}">${mbOver?'Margem dentro da meta':'Margem abaixo da meta'}</span></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function chartHTML(rows, nameKey){
+  const maxVal = Math.max(...rows.map(r=>Math.max(r.fat_meta||0, r.fat_meta_prop||0, r.fat_real||0)), 1);
+  return `<div class="table-card">
+    <div class="section-heading" style="padding:16px 18px 0;"><h2><span class="dot"></span>Realizado vs. Meta Proporcional por gestor</h2><span class="note">clique no gestor &middot; barra = realizado &middot; traços = meta proporcional e meta do mês</span></div>
+    ${rows.map(r=>{
+      const rtm = ritmo(r);
+      const w = clamp01((r.fat_real||0)/maxVal)*100;
+      const mProp = clamp01((r.fat_meta_prop||0)/maxVal)*100;
+      const mMes = clamp01((r.fat_meta||0)/maxVal)*100;
+      const bad = (rtm||0) < 1;
+      return `<details class="gestor-group">
+        <summary class="gestor-group-label">
+          <span class="chev-updown">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+          <span>${r[nameKey]}</span>
+          <span class="bar-pct-inline" style="color:${bad?'#ffb3ba':'#b6f5cf'}">${fmtPct(rtm)}</span>
+        </summary>
+        <div class="bar-row-v2">
+          <div class="bar-track-wrap">
+            <div class="bar-meta-marker-group" style="left:${mMes}%">
+              <span class="label-name">Meta Mês</span>
+              <span class="label-value">${fmtBRLc(r.fat_meta)}</span>
+              <span class="connector connector-mes"></span>
+            </div>
+            <div class="bar-meta-marker-group" style="left:${mProp}%">
+              <span class="label-value">${fmtBRLc(r.fat_meta_prop)}</span>
+              <span class="connector"></span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill ${bad?'bad':''}" style="width:${w}%"></div>
+              <div class="bar-marker" style="left:${mProp}%"></div>
+              <div class="bar-marker-mes" style="left:${mMes}%"></div>
+            </div>
+          </div>
+          <div class="bar-numbers">
+            <span class="mono num-strong">${fmtBRLc(r.fat_real)}</span>
+            <span class="bar-numbers-sep">realizado &middot; meta proporcional</span>
+            <span class="mono">${fmtBRLc(r.fat_meta_prop)}</span>
+            <span class="bar-numbers-sep">&middot; meta mês</span>
+            <span class="mono">${fmtBRLc(r.fat_meta)}</span>
+          </div>
+        </div>
+      </details>`;
+    }).join('')}
+  </div>`;
+}
+
+/* Indicadores por Gestor — aba PAD LOJAS
+   Meta            = coluna H (fat_meta)          -> meta do mês (faturamento)
+   Meta Prop.      = coluna I (fat_meta_prop)      -> meta proporcional (faturamento)
+   Realizado       = coluna J (fat_real)           -> real (faturamento)
+   %               = coluna K (fat_pct)            -> % já feito da meta do mês
+   Meta Margem     = coluna M (mb_meta)            -> meta de margem bruta
+   Realizado Margem = coluna N (mb_meta_prop)       -> meta proporcional da margem
+   % Margem        = coluna Q (mb_pct)             -> % de atingimento da margem       */
+function metricCellsLojasHTML(r){
+  return `
+    <div class="mono">${fmtBRLc(r.fat_meta)}</div>
+    <div class="mono">${fmtBRLc(r.fat_meta_prop)}</div>
+    <div class="mono num-strong">${fmtBRLc(r.fat_real)}</div>
+    <div class="mono num-strong" style="color:${(r.fat_pct||0)>=1?'var(--green-600)':'var(--red-600)'}">${fmtPct(r.fat_pct)}</div>
+    <div class="mono">${fmtBRLc(r.mb_meta)}</div>
+    <div class="mono">${fmtBRLc(r.mb_meta_prop)}</div>
+    <div class="mono num-strong" style="color:${(r.mb_pct||0)>=1?'var(--green-600)':'var(--red-600)'}">${fmtPct(r.mb_pct)}</div>
+  `;
+}
+
+/* Indicadores + Atingimento da Meta do Dia — detalhe individual de 1 gestor
+   (Meta/Realizado/etc. por loja do gestor selecionado + barras de meta do dia,
+   também por loja, colunas AA/AB da aba PAD LOJAS) */
+function gestorIndicatorsTableHTML(lojas){
+  return `<div class="table-card table-scroll">
+    <div class="table-head-row grid-lojas">
+      <div>Loja</div><div>Meta</div><div>Meta Prop.</div><div>Realizado</div><div>%</div><div>Meta Margem</div><div>Realizado Margem</div><div>% Margem</div>
+    </div>
+    ${lojas.map(l=>`<div class="subrow grid-lojas"><div>${l.loja}</div>${metricCellsLojasHTML(l)}</div>`).join('')}
+  </div>`;
+}
+
+function dayGoalPerLojaHTML(lojas){
+  const maxVal = Math.max(...lojas.map(l=>Math.max(l.day_meta||0, l.day_real||0)), 1);
+  return `<div class="table-card">
+    ${lojas.map(l=>{
+      const meta = l.day_meta, real = l.day_real, pct = l.day_pct;
+      const bad = (pct||0) < 1;
+      const w = clamp01((real||0)/maxVal)*100;
+      const m = clamp01((meta||0)/maxVal)*100;
+      return `<div class="day-goal-loja-block">
+        <div class="day-goal-loja-name">${l.loja}</div>
+        <div class="day-goal-track">
+          <div class="day-goal-fill ${bad?'bad':''}" style="width:${w}%"></div>
+          <div class="day-goal-marker" style="left:${m}%"></div>
+        </div>
+        <div class="day-goal-numbers">
+          <span class="mono num-strong">${fmtBRLc(real)}</span>
+          <span class="day-goal-sep">de</span>
+          <span class="mono">${fmtBRLc(meta)}</span>
+          <span class="mono num-strong day-goal-pct" style="color:${bad?'var(--red-600)':'var(--green-600)'}">${fmtPct(pct)}</span>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+/* Indicadores de Margem — aba PAD LOJAS, colunas M a Q
+   Meta         = coluna M (mb_meta)
+   Meta Prop.   = coluna N (mb_meta_prop)
+   Real Verba   = coluna O (mb_real_verba)
+   Real Total   = coluna P (mb_real_total)
+   %            = coluna Q (mb_pct)                */
+function marginIndicatorsTableHTML(lojas){
+  return `<div class="table-card table-scroll">
+    <div class="table-head-row grid-margem">
+      <div>Loja</div><div>Meta</div><div>Meta Prop.</div><div>Real Verba</div><div>Real Total</div><div>%</div>
+    </div>
+    ${lojas.map(l=>`<div class="subrow grid-margem">
+      <div>${l.loja}</div>
+      <div class="mono">${fmtBRLfull(l.mb_meta)}</div>
+      <div class="mono">${fmtBRLfull(l.mb_meta_prop)}</div>
+      <div class="mono">${fmtBRLfull(l.mb_real_verba)}</div>
+      <div class="mono num-strong">${fmtBRLfull(l.mb_real_total)}</div>
+      <div class="mono num-strong" style="color:${(l.mb_pct||0)>=1?'var(--green-600)':'var(--red-600)'}">${fmtPct(l.mb_pct)}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function gestorDetailHTML(g){
+  const checks = [
+    {label:'faturamento', value: g.total.fat_pct},
+    {label:'margem', value: g.total.mb_pct},
+    {label:'meta do dia', value: g.total.day_meta? (g.total.day_real/g.total.day_meta) : null},
+  ];
+  return `
+    <div class="gestor-detail-header"><h3>${g.nome}<span class="cod">${g.cod||''}</span></h3></div>
+    ${gestorAlertHTML(g.nome, checks)}
+    <div class="section-heading detail-sub"><h2><span class="dot"></span>Indicadores</h2></div>
+    ${gestorIndicatorsTableHTML(g.lojas)}
+    <div class="section-heading detail-sub"><h2><span class="dot"></span>Indicadores de Margem</h2></div>
+    ${marginIndicatorsTableHTML(g.lojas)}
+    <div class="section-heading detail-sub"><h2><span class="dot"></span>Atingimento da Meta do Dia</h2></div>
+    ${dayGoalPerLojaHTML(g.lojas)}
+  `;
+}
+
+function gestorPickerHTML(gestores){
+  return `
+    <div class="gestor-picker">
+      ${gestores.map((g,i)=>`<button type="button" class="gestor-chip" id="chip-lojas-${i}" onclick="selectGestorLojas(${i})">${g.nome}<span class="cod">${g.cod||''}</span></button>`).join('')}
+    </div>
+    <div id="gestor-detail-panel" class="gestor-detail-panel">
+      <div class="gestor-detail-empty">Selecione um gestor acima para ver os indicadores e a meta do dia dele.</div>
+    </div>
+  `;
+}
+
+let selectedGestorLojasIdx = null;
+function selectGestorLojas(i){
+  const panel = document.getElementById('gestor-detail-panel');
+  if(selectedGestorLojasIdx === i){
+    // clicou de novo no mesmo gestor: fecha
+    selectedGestorLojasIdx = null;
+    panel.innerHTML = '<div class="gestor-detail-empty">Selecione um gestor acima para ver os indicadores e a meta do dia dele.</div>';
+    const chip = document.getElementById('chip-lojas-'+i);
+    if(chip) chip.classList.remove('active');
+    return;
+  }
+  const g = DATA.lojas.gestores[i];
+  if(!g) return;
+  selectedGestorLojasIdx = i;
+  panel.innerHTML = gestorDetailHTML(g);
+  for(let idx=0; idx<DATA.lojas.gestores.length; idx++){
+    const chip = document.getElementById('chip-lojas-'+idx);
+    if(chip) chip.classList.toggle('active', idx===i);
+  }
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function renderLojas(){
+  const d = DATA.lojas;
+  const root = document.getElementById('view-root');
+  selectedGestorLojasIdx = null;
+  root.innerHTML = `
+    <div class="section-heading"><h2><span class="dot"></span>Análise Geral de Lojas</h2><span class="note">faturamento e margem por loja &middot; meta, meta proporcional e realizado</span></div>
+    ${analiseGeralLojasHTML(d.bandeiras, d.total)}
+    <div class="section-heading"><h2><span class="dot"></span>Indicadores por gestor</h2><span class="note">clique no seu nome para ver suas informações</span></div>
+    ${gestorPickerHTML(d.gestores)}
+  `;
+}
+
+/* Indicadores Dia — aba PAD DISTRIBUIÇÃO, colunas V (meta dia) e W (realizado dia) */
+function dayIndicatorBlockHTML(g){
+  const meta = g.day_meta, real = g.day_real, pct = meta? real/meta : null;
+  const bad = (pct||0) < 1;
+  const maxVal = Math.max(meta||0, real||0, 1);
+  const wReal = clamp01((real||0)/maxVal)*100;
+  const wMeta = clamp01((meta||0)/maxVal)*100;
+  return `
+    <div class="day-goal-loja-block">
+      <div class="day-goal-loja-name">Faturamento do Dia — Meta &times; Realizado</div>
+      <div class="day-goal-track">
+        <div class="day-goal-fill ${bad?'bad':''}" style="width:${wReal}%"></div>
+        <div class="day-goal-marker" style="left:${wMeta}%"></div>
+      </div>
+      <div class="day-goal-numbers">
+        <span class="mono num-strong">${fmtBRLc(real)}</span>
+        <span class="day-goal-sep">de</span>
+        <span class="mono">${fmtBRLc(meta)}</span>
+        <span class="mono num-strong day-goal-pct" style="color:${bad?'var(--red-600)':'var(--green-600)'}">${fmtPct(pct)}</span>
+      </div>
+    </div>
+  `;
+}
+
+/* Painel individual por gestor (Distribuição) — mesma UX de caixas de seleção
+   usada na aba PAD Lojas: clica no nome e aparecem os indicadores + o dia dele. */
+/* Indicadores de Faturamento — aba PAD DISTRIBUIÇÃO
+   Meta mês  = coluna G (fat_meta)
+   Meta Prop. = coluna H (fat_meta_prop)
+   Realizado = coluna I (fat_real)
+   %         = coluna J (fat_pct)             */
+function distribIndicatorsSingleHTML(g){
+  return `<div class="table-card">
+    <div class="table-head-row grid-distrib-fat">
+      <div>Gestor</div><div>Meta mês</div><div>Meta Prop.</div><div>Realizado</div><div>%</div>
+    </div>
+    <div class="subrow grid-distrib-fat" style="padding:12px 18px;">
+      <div style="text-align:left;font-weight:700;color:var(--navy-900);">${g.nome} <span class="cod" style="font-weight:500;color:var(--ink-soft);font-size:11.5px;">${g.cod||''}</span></div>
+      <div class="mono">${fmtBRLc(g.fat_meta)}</div>
+      <div class="mono">${fmtBRLc(g.fat_meta_prop)}</div>
+      <div class="mono num-strong">${fmtBRLc(g.fat_real)}</div>
+      <div class="mono num-strong" style="color:${(g.fat_pct||0)>=1?'var(--green-600)':'var(--red-600)'}">${fmtPct(g.fat_pct)}</div>
+    </div>
+  </div>`;
+}
+
+function distribGestorDetailHTML(g){
+  const rtm = ritmo(g);
+  const checks = [
+    {label:'faturamento', value: g.fat_pct},
+    {label:'ritmo do mês', value: rtm},
+    {label:'meta do dia', value: g.day_meta? (g.day_real/g.day_meta) : null},
+  ];
+  return `
+    <div class="gestor-detail-header"><h3>${g.nome}<span class="cod">${g.cod||''}</span></h3></div>
+    ${gestorAlertHTML(g.nome, checks)}
+    <div class="section-heading detail-sub"><h2><span class="dot"></span>Indicadores de Faturamento</h2></div>
+    ${distribIndicatorsSingleHTML(g)}
+    <div class="section-heading detail-sub"><h2><span class="dot"></span>Indicadores Dia</h2></div>
+    <div class="table-card">${dayIndicatorBlockHTML(g)}</div>
+  `;
+}
+
+function gestorPickerDistribHTML(gestores){
+  return `
+    <div class="gestor-picker">
+      ${gestores.map((g,i)=>`<button type="button" class="gestor-chip" id="chip-distrib-${i}" onclick="selectGestorDistrib(${i})">${g.nome}<span class="cod">${g.cod||''}</span></button>`).join('')}
+    </div>
+    <div id="gestor-detail-panel-distrib" class="gestor-detail-panel">
+      <div class="gestor-detail-empty">Selecione um gestor acima para ver os indicadores e o dia dele.</div>
+    </div>
+  `;
+}
+
+let selectedGestorDistribIdx = null;
+function selectGestorDistrib(i){
+  const panel = document.getElementById('gestor-detail-panel-distrib');
+  if(selectedGestorDistribIdx === i){
+    // clicou de novo no mesmo gestor: fecha
+    selectedGestorDistribIdx = null;
+    panel.innerHTML = '<div class="gestor-detail-empty">Selecione um gestor acima para ver os indicadores e o dia dele.</div>';
+    const chip = document.getElementById('chip-distrib-'+i);
+    if(chip) chip.classList.remove('active');
+    return;
+  }
+  const g = DATA.distribuicao.gestores[i];
+  if(!g) return;
+  selectedGestorDistribIdx = i;
+  panel.innerHTML = distribGestorDetailHTML(g);
+  for(let idx=0; idx<DATA.distribuicao.gestores.length; idx++){
+    const chip = document.getElementById('chip-distrib-'+idx);
+    if(chip) chip.classList.toggle('active', idx===i);
+  }
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function renderDistribuicao(){
+  const d = DATA.distribuicao;
+  const root = document.getElementById('view-root');
+  selectedGestorDistribIdx = null;
+  root.innerHTML = `
+    <div class="section-heading"><h2><span class="dot"></span>PAD Distribuição — visão consolidada (Total Distribuição)</h2><span class="note">${d.gestores.length} gestores</span></div>
+    ${kpiCardsHTML(d.total)}
+    <div class="section-heading"><h2><span class="dot"></span>Indicadores por gestor</h2><span class="note">clique no seu nome para ver seus indicadores e o dia</span></div>
+    ${gestorPickerDistribHTML(d.gestores)}
+    <div class="section-heading"><h2><span class="dot"></span>Realizado vs. meta</h2></div>
+    ${chartHTML(d.gestores, 'nome')}
+  `;
+}
+
+let currentView = 'lojas';
+function setView(view){
+  currentView = view;
+  document.getElementById('btn-lojas').classList.toggle('active', view==='lojas');
+  document.getElementById('btn-distribuicao').classList.toggle('active', view==='distribuicao');
+  document.getElementById('lastUpdateLabel').textContent = view==='lojas' ? 'PAD Lojas' : 'PAD Distribuição';
+  if(view==='lojas') renderLojas(); else renderDistribuicao();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function refreshPreviewNumbers(){
+  document.getElementById('prev-lojas-num').textContent = fmtPct(DATA.lojas.total.fat_pct);
+  document.getElementById('prev-distribuicao-num').textContent = fmtPct(DATA.distribuicao.total.fat_pct);
+  document.getElementById('prev-lojas-num').style.color = (DATA.lojas.total.fat_pct>=1)?'var(--green-600)':'var(--red-600)';
+  document.getElementById('prev-distribuicao-num').style.color = (DATA.distribuicao.total.fat_pct>=1)?'var(--green-600)':'var(--red-600)';
+}
+refreshPreviewNumbers();
+
+renderLojas();
+
+/* =========================================================
+   ATUALIZAÇÃO DE DADOS A PARTIR DE UM NOVO ARQUIVO .XLSX
+   Lê o arquivo no navegador (SheetJS) e refaz o parsing
+   seguindo a mesma estrutura da planilha PAD_AGOSTO_2026.
+   ========================================================= */
+
+function cell(rows, r, c){
+  const row = rows[r];
+  if(!row) return null;
+  const v = row[c];
+  return (v===undefined || v==='') ? null : v;
+}
+
+function findFirstDataRow(rows, codeRegex){
+  for(let r=0;r<rows.length;r++){
+    const v = cell(rows,r,0);
+    if(v!==null && codeRegex.test(String(v).trim())) return r;
+  }
+  return -1;
+}
+
+function parseLojasSheet(rows){
+  const startRow = findFirstDataRow(rows, /^C\d+/i);
+  const gestores = [];
+  let cur = null;
+  let r = startRow;
+  let bandeiraStart = -1;
+
+  while(r < rows.length){
+    const codV = cell(rows,r,0), gerV = cell(rows,r,1), lojaV = cell(rows,r,2);
+    if(lojaV===null){ r++; continue; }
+    const lojaStr = String(lojaV).trim();
+    if(lojaStr.toUpperCase() === 'TOTAL LOJAS'){ break; }
+    if(lojaStr.toUpperCase().startsWith('TOTAL')){
+      if(cur){
+        cur.total = buildLojasRow(rows,r);
+        cur.total.label = lojaStr;
+        gestores.push(cur);
+        cur = null;
+      }
+      r++; continue;
+    }
+    if(gerV!==null && String(gerV).trim().toUpperCase()!=='TOTAL'){ cur = {cod: codV, nome: renameGestor(gerV), lojas: []}; }
+    if(cur){
+      const row = buildLojasRow(rows,r);
+      row.loja = lojaStr;
+      cur.lojas.push(row);
+    }
+    r++;
+  }
+  bandeiraStart = r; // row after break, but break happened right at 'TOTAL LOJAS' row -> need bandeiras before it
+  // find bandeiras: walk upward from bandeiraStart-1 while col A/B empty and col C non-empty and not TOTAL
+  const bandeiras = [];
+  let br = bandeiraStart - 1;
+  // skip blank separator row(s) between last gestor total and the bandeira block
+  while(br >= 0 && cell(rows,br,2)===null) br--;
+  const collected = [];
+  while(br >= 0){
+    const c0=cell(rows,br,0), c1=cell(rows,br,1), c2=cell(rows,br,2);
+    if(c2===null){ break; }
+    const label = String(c2).trim();
+    if(label.toUpperCase().startsWith('TOTAL')) break;
+    if(c0!==null) break;
+    // the first bandeira row's col B sometimes literally says "TOTAL" (a section marker) — that's fine
+    if(c1!==null && String(c1).trim().toUpperCase()!=='TOTAL') break;
+    collected.unshift({row:br, label});
+    br--;
+  }
+  collected.forEach(item=>{
+    const row = buildLojasRow(rows, item.row);
+    row.label = item.label;
+    bandeiras.push(row);
+  });
+
+  const totalRow = buildLojasRow(rows, bandeiraStart);
+  totalRow.label = 'TOTAL LOJAS';
+
+  return { total: totalRow, bandeiras, gestores };
+}
+
+function buildLojasRow(rows, r){
+  const fat_meta = num(cell(rows,r,7));
+  const fat_meta_prop = num(cell(rows,r,8));
+  const fat_real = num(cell(rows,r,9));
+  const fat_pct = num(cell(rows,r,10));
+  const mref_proposta = num(cell(rows,r,18));
+  const mref_real = num(cell(rows,r,19));
+  let lb_pct = null;
+  if(mref_proposta){ lb_pct = mref_real/mref_proposta; }
+  const day_meta = num(cell(rows,r,26));
+  const day_real = num(cell(rows,r,27));
+  let day_pct = null;
+  if(day_meta){ day_pct = day_real/day_meta; }
+  return {
+    estoque_real: num(cell(rows,r,4)),
+    pct_venda: num(cell(rows,r,5)),
+    fat_meta, fat_meta_prop, fat_real, fat_pct,
+    lb_meta: mref_proposta, lb_real: mref_real, lb_pct,
+    mb_meta: num(cell(rows,r,12)),
+    mb_meta_prop: num(cell(rows,r,13)),
+    mb_real_verba: num(cell(rows,r,14)),
+    mb_real_total: num(cell(rows,r,15)),
+    mb_pct: num(cell(rows,r,16)),
+    day_meta, day_real, day_pct,
+  };
+}
+
+/* Nomes de gestor que a planilha traz "em aberto" ou incompletos
+   e que devem aparecer com o nome correto no dashboard. */
+const GESTOR_RENAME = { 'em aberto': 'ISAIAS - BAZAR', 'higiene': 'HEMILI - HIGIENE' };
+function renameGestor(nome){
+  if(nome===null || nome===undefined) return nome;
+  const key = String(nome).trim().toLowerCase();
+  return GESTOR_RENAME[key] || nome;
+}
+
+function parseDistribSheet(rows){
+  const startRow = findFirstDataRow(rows, /^C\d+/i);
+  const gestores = [];
+  let total = null;
+  for(let r=startRow; r<rows.length; r++){
+    const gerV = cell(rows,r,1);
+    if(gerV===null) continue;
+    const gerStr = String(gerV).trim();
+    const row = buildDistribRow(rows,r);
+    row.nome = gerStr;
+    row.cod = cell(rows,r,0);
+    if(gerStr.toUpperCase().startsWith('TOTAL')){
+      total = row;
+      break;
+    } else {
+      gestores.push(row);
+    }
+  }
+  return { total, gestores };
+}
+
+function buildDistribRow(rows, r){
+  return {
+    estoque_real: num(cell(rows,r,3)),
+    pct_venda: num(cell(rows,r,4)),
+    fat_meta: num(cell(rows,r,6)),
+    fat_meta_prop: num(cell(rows,r,7)),
+    fat_real: num(cell(rows,r,8)),
+    fat_pct: num(cell(rows,r,9)),
+    lb_meta: num(cell(rows,r,11)),
+    lb_real: num(cell(rows,r,12)),
+    lb_pct: num(cell(rows,r,13)),
+    mb_meta: num(cell(rows,r,15)),
+    mb_real_total: num(cell(rows,r,18)),
+    mb_pct: num(cell(rows,r,19)),
+    day_meta: num(cell(rows,r,21)),
+    day_real: num(cell(rows,r,22)),
+    day_lb: num(cell(rows,r,23)),
+    day_lb_pct: num(cell(rows,r,24)),
+  };
+}
+
+function num(v){
+  if(v===null||v===undefined||v==='') return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
+
+function handleWorkbook(workbook){
+  const shLojas = workbook.Sheets['PAD - LOJAS'];
+  const shDistrib = workbook.Sheets['PAD - DISTRIBUIÇÃO'];
+  if(!shLojas || !shDistrib){
+    alert('Não encontrei as abas "PAD - LOJAS" e "PAD - DISTRIBUIÇÃO" nesse arquivo. Confirme se é a planilha PAD no mesmo layout.');
+    return;
+  }
+  const rowsLojas = XLSX.utils.sheet_to_json(shLojas, {header:1, defval:null, raw:true});
+  const rowsDistrib = XLSX.utils.sheet_to_json(shDistrib, {header:1, defval:null, raw:true});
+
+  try{
+    const lojas = parseLojasSheet(rowsLojas);
+    const distribuicao = parseDistribSheet(rowsDistrib);
+    DATA = { lojas, distribuicao };
+    refreshPreviewNumbers();
+    if(currentView==='lojas') renderLojas(); else renderDistribuicao();
+  }catch(err){
+    console.error(err);
+    alert('Não consegui ler essa planilha automaticamente. Estrutura pode ter mudado. Envie o arquivo para o Claude regenerar o dashboard.');
+  }
+}
+
+/* =========================================================
+   HISTÓRICO DIÁRIO — lê dados/indice.json (se existir) e permite
+   trocar entre TODOS os dias já salvos (desde o começo do histórico),
+   buscando o .xlsx de cada dia diretamente do servidor.
+   Ao abrir o link, mostra sempre o dia mais recente disponível
+   (o dia atual, ou o dia da última atualização caso o de hoje
+   ainda não tenha sido publicado).
+   Só funciona quando o dashboard está hospedado (http/https);
+   não funciona abrindo o arquivo localmente (protocolo file://) —
+   nesse caso, mostra os dados já embutidos neste arquivo.
+   ========================================================= */
+const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+let AVAILABLE_DATES = [];
+let CURRENT_DATE_IDX = -1;
+
+function fmtDiaChip(iso){
+  const [y,mo,da] = iso.split('-');
+  return da+'/'+mo+'/'+y.slice(2);
+}
+function fmtDiaFull(iso){
+  const [y,mo,da] = iso.split('-');
+  return da+'/'+mo+'/'+y;
+}
+function fmtMesAno(iso){
+  const [y,mo] = iso.split('-');
+  return MESES_PT[parseInt(mo,10)-1] + ' ' + y;
+}
+
+function renderDateSelector(){
+  const bar = document.getElementById('dateSelectorBar');
+  if(!bar) return;
+  if(AVAILABLE_DATES.length === 0){
+    bar.classList.remove('has-dates');
+    bar.innerHTML = '';
+    return;
+  }
+  bar.classList.add('has-dates');
+  const lastIdx = AVAILABLE_DATES.length - 1;
+  bar.innerHTML = `
+    <span class="date-selector-label">Histórico &middot; ver dados de:</span>
+    <div class="date-chip-row">
+      ${AVAILABLE_DATES.map((d,i)=>`<button type="button" class="date-chip ${i===CURRENT_DATE_IDX?'active':''} ${i===lastIdx?'is-latest':''}" onclick="loadDateFile(${i})">${fmtDiaChip(d.data)}</button>`).join('')}
+    </div>
+  `;
+}
+
+async function loadDateIndex(){
+  try{
+    const res = await fetch('dados/indice.json', {cache:'no-store'});
+    if(!res.ok) return; // pasta/índice não existe — usa os dados já embutidos no arquivo
+    const idx = await res.json();
+    AVAILABLE_DATES = (idx.arquivos || [])
+      .filter(a => a.data)
+      .sort((a,b) => a.data.localeCompare(b.data));
+    if(AVAILABLE_DATES.length === 0) return;
+    const todayIso = new Date().toLocaleDateString('en-CA'); // AAAA-MM-DD
+    let defaultIdx = AVAILABLE_DATES.findIndex(a => a.data === todayIso);
+    if(defaultIdx === -1) defaultIdx = AVAILABLE_DATES.length - 1; // sem arquivo de hoje ainda: mostra a última atualização
+    renderDateSelector();
+    await loadDateFile(defaultIdx);
+  }catch(e){
+    console.warn('Histórico diário não encontrado (dados/indice.json). Usando os dados já embutidos neste arquivo.', e);
+  }
+}
+
+async function loadDateFile(i){
+  const entry = AVAILABLE_DATES[i];
+  if(!entry) return;
+  try{
+    const res = await fetch(entry.arquivo, {cache:'no-store'});
+    const buf = await res.arrayBuffer();
+    const workbook = XLSX.read(new Uint8Array(buf), {type:'array'});
+    CURRENT_DATE_IDX = i;
+    handleWorkbook(workbook);
+    renderDateSelector();
+    document.getElementById('titleMonth').textContent = fmtMesAno(entry.data);
+    const lastEntry = AVAILABLE_DATES[AVAILABLE_DATES.length-1];
+    document.getElementById('lastUpdateDateTime').textContent = fmtDiaFull(lastEntry.data);
+  }catch(e){
+    console.error('Não consegui carregar o arquivo do dia', entry, e);
+    alert('Não consegui carregar os dados de ' + fmtDiaChip(entry.data) + '.');
+  }
+}
+
+loadDateIndex();
+</script>
+
+</body>
+</html>
