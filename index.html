@@ -238,6 +238,14 @@
   .gap-pie-legend span{display:flex;align-items:center;gap:5px;}
   .gap-pie-legend i{width:8px;height:8px;border-radius:2px;display:inline-block;}
 
+  /* ---------- DESEMPENHO DO FATURAMENTO (mini gráfico de linha) ---------- */
+  .kpi-card-trend{display:flex;flex-direction:column;}
+  .kpi-trend-body{margin-top:10px;flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;}
+  .kpi-trend-svg{width:100%;height:70px;display:block;}
+  .kpi-trend-foot{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;font-size:10.5px;color:var(--ink-soft);font-family:var(--font-mono);}
+  .kpi-trend-last{font-weight:700;color:var(--navy-900);font-size:12px;}
+  .kpi-trend-loading, .kpi-trend-empty{font-size:12px;color:var(--ink-soft);text-align:center;padding:22px 4px;}
+
 
   /* ---------- ANÁLISE GERAL DE LOJAS (cards) ---------- */
   .analise-grid{grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));}
@@ -483,7 +491,7 @@
   <div class="header-meta">
     <strong id="lastUpdateLabel">Lojas &amp; Distribuição</strong>
     Meta, ritmo e gap de faturamento por gestor
-    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">13/08/2026 às 15:25</strong></div>
+    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">14/08/2026 às 12:01</strong></div>
   </div>
 </header>
 
@@ -626,29 +634,39 @@ function gapPieHTML(total){
 }
 
 function kpiCardsHTML(total){
-  const rtm = ritmo(total);
+  const rtm = ritmo(total); // Real (I) / Meta Proporcional (H)
   const g = gap(total);
-  const fatPct = total.fat_pct;
 
   const gapIsPositive = g!==null && g>0; // still needs to hit target
   const gapLabel = g===null ? '—' : (g<=0 ? ('Meta batida · superávit de ' + fmtBRL(Math.abs(g))) : ('Faltam ' + fmtBRL(g) + ' no mês'));
+
+  let statusLabel, statusClass;
+  if(rtm===null || rtm===undefined || isNaN(rtm)){
+    statusLabel = '—'; statusClass = 'warn';
+  } else if(rtm >= 1){
+    statusLabel = 'Meta batida'; statusClass = 'good';
+  } else if(rtm > 0.97){
+    statusLabel = 'Próximo da meta'; statusClass = 'warn';
+  } else {
+    statusLabel = 'Abaixo da meta'; statusClass = 'bad';
+  }
 
   return `
   <div class="kpi-grid kpi-grid-3">
     <div class="kpi-card">
       <div class="bar-top" style="background:var(--navy-700)"></div>
-      <div class="kpi-label">Faturamento — Real / Meta</div>
-      <div class="kpi-value">${fmtPct(fatPct)}</div>
-      <div class="kpi-sub">${fmtBRLc(total.fat_real)} de ${fmtBRLc(total.fat_meta)} (meta do mês)</div>
-      <div class="kpi-foot"><span class="pill ${pillClass(fatPct)}">${fatPct>=1?'Meta atingida':'Abaixo da meta'}</span></div>
+      <div class="kpi-label">Faturamento — Real / Meta Prop.</div>
+      <div class="kpi-value">${fmtPct(rtm)}</div>
+      <div class="kpi-sub">${fmtBRLc(total.fat_real)} de ${fmtBRLc(total.fat_meta_prop)} (meta proporcional)</div>
+      <div class="kpi-foot"><span class="pill ${statusClass}">${statusLabel}</span></div>
     </div>
 
-    <div class="kpi-card">
+    <div class="kpi-card kpi-card-trend">
       <div class="bar-top" style="background:var(--navy-800)"></div>
-      <div class="kpi-label">Ritmo do mês — vs. Meta Proporcional</div>
-      <div class="kpi-value">${fmtPct(rtm)}</div>
-      <div class="kpi-sub">${fmtBRLc(total.fat_real)} de ${fmtBRLc(total.fat_meta_prop)} (proporcional ao dia)</div>
-      <div class="kpi-foot"><span class="pill ${pillClass(rtm)}">${rtm>=1?'No ritmo ou acima':'Abaixo do ritmo'}</span></div>
+      <div class="kpi-label">Desempenho do Faturamento — Mês Atual</div>
+      <div class="kpi-trend-body" id="kpiTrendBody">
+        <div class="kpi-trend-loading">Carregando histórico&hellip;</div>
+      </div>
     </div>
 
     <div class="kpi-card kpi-card-gap">
@@ -1005,6 +1023,7 @@ function renderDistribuicao(){
     <div class="section-heading"><h2><span class="dot"></span>Realizado vs. meta</h2></div>
     ${chartHTML(d.gestores, 'nome')}
   `;
+  renderFaturamentoTrendChart();
 }
 
 let currentView = 'lojas';
@@ -1295,6 +1314,78 @@ async function loadDateFile(i){
     console.error('Não consegui carregar o arquivo do dia', entry, e);
     alert('Não consegui carregar os dados de ' + fmtDiaChip(entry.data) + '.');
   }
+}
+
+/* Desempenho do Faturamento — Mês Atual (aba PAD DISTRIBUIÇÃO)
+   Busca o total de faturamento realizado de cada dia já salvo no histórico
+   (dados/indice.json) dentro do mês da data em exibição, e desenha uma
+   linha simples mostrando a evolução dia a dia. */
+const trendCache = {};
+
+async function loadDistribTotalForDate(iso, arquivo){
+  if(trendCache[iso]) return trendCache[iso];
+  const res = await fetch(arquivo, {cache:'no-store'});
+  const buf = await res.arrayBuffer();
+  const workbook = XLSX.read(new Uint8Array(buf), {type:'array'});
+  const sh = workbook.Sheets['PAD - DISTRIBUIÇÃO'];
+  if(!sh) return null;
+  const rows = XLSX.utils.sheet_to_json(sh, {header:1, defval:null, raw:true});
+  const distribuicao = parseDistribSheet(rows);
+  const val = distribuicao.total ? { fat_real: distribuicao.total.fat_real, fat_meta: distribuicao.total.fat_meta } : null;
+  trendCache[iso] = val;
+  return val;
+}
+
+function trendSvgHTML(points){
+  const W = 280, H = 78, PAD = 8;
+  const vals = points.map(p=>p.real||0);
+  const maxV = Math.max(...vals, 1);
+  const minV = Math.min(...vals, 0);
+  const range = (maxV - minV) || 1;
+  const stepX = points.length>1 ? (W-2*PAD)/(points.length-1) : 0;
+  const coords = points.map((p,i)=>{
+    const x = PAD + i*stepX;
+    const y = H - PAD - ((p.real||0)-minV)/range*(H-2*PAD);
+    return [x,y];
+  });
+  const path = coords.map((c,i)=> (i===0?'M':'L')+c[0].toFixed(1)+','+c[1].toFixed(1)).join(' ');
+  const dots = coords.map((c,i)=>`<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="2.6" fill="${i===coords.length-1?'var(--red-600)':'var(--navy-700)'}"/>`).join('');
+  const first = points[0], last = points[points.length-1];
+  return `
+    <svg viewBox="0 0 ${W} ${H}" class="kpi-trend-svg" preserveAspectRatio="none">
+      <path d="${path}" fill="none" stroke="var(--navy-700)" stroke-width="2"/>
+      ${dots}
+    </svg>
+    <div class="kpi-trend-foot">
+      <span>${fmtDiaChip(first.data)}</span>
+      <span class="kpi-trend-last">${fmtBRLc(last.real)}</span>
+      <span>${fmtDiaChip(last.data)}</span>
+    </div>
+  `;
+}
+
+async function renderFaturamentoTrendChart(){
+  const body = document.getElementById('kpiTrendBody');
+  if(!body) return;
+  if(!AVAILABLE_DATES || AVAILABLE_DATES.length === 0){
+    body.innerHTML = '<div class="kpi-trend-empty">Histórico não disponível (abra pelo link hospedado).</div>';
+    return;
+  }
+  const refEntry = AVAILABLE_DATES[CURRENT_DATE_IDX] || AVAILABLE_DATES[AVAILABLE_DATES.length-1];
+  const ym = refEntry.data.slice(0,7);
+  const monthDates = AVAILABLE_DATES.filter(d => d.data.startsWith(ym));
+  if(monthDates.length === 0){ body.innerHTML = ''; return; }
+
+  const points = [];
+  for(const d of monthDates){
+    try{
+      const v = await loadDistribTotalForDate(d.data, d.arquivo);
+      if(v) points.push({data:d.data, real:v.fat_real, meta:v.fat_meta});
+    }catch(e){ console.warn('Trend: falhou ao carregar', d.data, e); }
+  }
+  if(!body.isConnected) return; // a view pode ter trocado enquanto carregava
+  if(points.length === 0){ body.innerHTML = '<div class="kpi-trend-empty">Sem dados no histórico deste mês.</div>'; return; }
+  body.innerHTML = trendSvgHTML(points);
 }
 
 loadDateIndex();
