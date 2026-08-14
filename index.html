@@ -108,16 +108,17 @@
     font-size:12px;font-weight:700;color:var(--navy-900);
     text-transform:uppercase;letter-spacing:.03em;flex:0 0 auto;
   }
-  .date-chip-row{display:flex;gap:8px;flex-wrap:wrap;flex:1 1 auto;max-height:120px;overflow-y:auto;}
-  .date-chip{
-    background:#fff;border:1.5px solid var(--line);color:var(--navy-900);
-    font-family:var(--font-mono);font-weight:700;font-size:12px;
-    padding:6px 13px;border-radius:100px;cursor:pointer;
-    transition:all .15s ease;white-space:nowrap;
+  .date-select{
+    appearance:none;-webkit-appearance:none;-moz-appearance:none;
+    background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23273577" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>') no-repeat right 12px center;
+    background-size:14px 14px;
+    border:1.5px solid var(--line);color:var(--navy-900);
+    font-family:var(--font-mono);font-weight:700;font-size:13px;
+    padding:9px 36px 9px 14px;border-radius:10px;cursor:pointer;
+    transition:border-color .15s ease;
+    min-width:180px;
   }
-  .date-chip:hover{border-color:var(--navy-700);}
-  .date-chip.active{background:var(--red-600);color:#fff;border-color:var(--red-600);}
-  .date-chip.is-latest::after{content:" · hoje";font-weight:500;opacity:.8;}
+  .date-select:hover, .date-select:focus{border-color:var(--navy-700);outline:none;}
 
   /* ---------- SWITCHER ---------- */
   .switcher{
@@ -491,7 +492,7 @@
   <div class="header-meta">
     <strong id="lastUpdateLabel">Lojas &amp; Distribuição</strong>
     Meta, ritmo e gap de faturamento por gestor
-    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">14/08/2026 às 12:01</strong></div>
+    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">14/08/2026 às 12:23</strong></div>
   </div>
 </header>
 
@@ -1270,11 +1271,16 @@ function renderDateSelector(){
   }
   bar.classList.add('has-dates');
   const lastIdx = AVAILABLE_DATES.length - 1;
+  // mostra do mais recente para o mais antigo na lista suspensa
+  const optionsHtml = AVAILABLE_DATES.map((d,i)=>({d,i}))
+    .slice().reverse()
+    .map(({d,i})=>`<option value="${i}" ${i===CURRENT_DATE_IDX?'selected':''}>${fmtDiaChip(d.data)}${i===lastIdx?' · hoje':''}</option>`)
+    .join('');
   bar.innerHTML = `
     <span class="date-selector-label">Histórico &middot; ver dados de:</span>
-    <div class="date-chip-row">
-      ${AVAILABLE_DATES.map((d,i)=>`<button type="button" class="date-chip ${i===CURRENT_DATE_IDX?'active':''} ${i===lastIdx?'is-latest':''}" onclick="loadDateFile(${i})">${fmtDiaChip(d.data)}</button>`).join('')}
-    </div>
+    <select class="date-select" onchange="loadDateFile(parseInt(this.value,10))">
+      ${optionsHtml}
+    </select>
   `;
 }
 
