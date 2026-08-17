@@ -503,7 +503,7 @@
   <div class="header-meta">
     <strong id="lastUpdateLabel">Lojas &amp; Distribuição</strong>
     Meta, ritmo e gap de faturamento por gestor
-    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">17/08/2026 às 17:24</strong></div>
+    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">17/08/2026 às 17:37</strong></div>
   </div>
 </header>
 
@@ -1431,9 +1431,29 @@ function pctTierColor(pct){
   return 'var(--green-600)';
 }
 
+function smoothPathD(coords){
+  if(coords.length < 3){
+    return coords.map((c,i)=> (i===0?'M':'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
+  }
+  let d = `M${coords[0][0].toFixed(1)},${coords[0][1].toFixed(1)}`;
+  for(let i=0; i<coords.length-1; i++){
+    const p0 = coords[i-1] || coords[i];
+    const p1 = coords[i];
+    const p2 = coords[i+1];
+    const p3 = coords[i+2] || p2;
+    const cp1x = p1[0] + (p2[0]-p0[0])/6;
+    const cp1y = p1[1] + (p2[1]-p0[1])/6;
+    const cp2x = p2[0] - (p3[0]-p1[0])/6;
+    const cp2y = p2[1] - (p3[1]-p1[1])/6;
+    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
 function multiLineTrendSvgHTML(series, opts){
   opts = opts || {};
   const W = opts.width || 600, H = opts.height || 150, PAD = 10;
+  const topPad = opts.showPointLabels ? 20 : PAD; // espaço extra pro rótulo acima da linha
   let allVals = [];
   series.forEach(s => s.points.forEach(p => { if(p.value!==null && p.value!==undefined) allVals.push(p.value); }));
   if(allVals.length === 0) return '<div class="kpi-trend-empty">Sem dados no histórico deste mês.</div>';
@@ -1443,17 +1463,23 @@ function multiLineTrendSvgHTML(series, opts){
   const maxLen = Math.max(...series.map(s => s.points.length), 1);
   const stepX = maxLen > 1 ? (W - 2*PAD) / (maxLen - 1) : 0;
 
+  let labelsHtml = '';
   const linesHtml = series.map(s => {
     const coords = s.points.map((p,i) => {
       const x = PAD + i*stepX;
-      const y = H - PAD - (((p.value||0) - minV) / range) * (H - 2*PAD);
+      const y = H - PAD - (((p.value||0) - minV) / range) * (H - PAD - topPad);
       return [x,y];
     });
     if(coords.length === 0) return '';
-    const path = coords.map((c,i) => (i===0?'M':'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
-    const last = coords[coords.length-1];
-    return `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2"/>` +
-           `<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3" fill="${s.color}"/>`;
+    const path = smoothPathD(coords);
+    const dots = coords.map(c=>`<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="2.6" fill="${s.color}"/>`).join('');
+    if(opts.showPointLabels){
+      labelsHtml += s.points.map((p,i) => {
+        const [x,y] = coords[i];
+        return `<text x="${x.toFixed(1)}" y="${(y-7).toFixed(1)}" font-size="8.5" font-weight="700" text-anchor="middle" fill="${s.color}" font-family="var(--font-mono)">${fmtPct(p.value,0)}</text>`;
+      }).join('');
+    }
+    return `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2"/>${dots}`;
   }).join('');
 
   const longest = series.reduce((a,b)=> b.points.length>a.points.length?b:a, series[0]);
@@ -1471,7 +1497,7 @@ function multiLineTrendSvgHTML(series, opts){
   }).join('');
 
   return `
-    <svg viewBox="0 0 ${W} ${H}" class="multi-trend-svg" preserveAspectRatio="none">${linesHtml}</svg>
+    <svg viewBox="0 0 ${W} ${H}" class="multi-trend-svg" style="height:${H}px" preserveAspectRatio="none">${linesHtml}${labelsHtml}</svg>
     <div class="trend-x-labels"><span>${firstDate}</span><span>${lastDate}</span></div>
     <div class="trend-legend">${legendHtml}</div>
   `;
@@ -1567,7 +1593,7 @@ async function renderEstoqueTrendChart(){
     return { label: nome, color, points };
   });
   if(series.length === 0){ body.innerHTML = '<div class="kpi-trend-empty">Sem dados no histórico deste mês.</div>'; return; }
-  body.innerHTML = multiLineTrendSvgHTML(series, {height:170});
+  body.innerHTML = multiLineTrendSvgHTML(series, {height:210, showPointLabels:true});
 }
 
 loadDateIndex();
