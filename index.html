@@ -258,6 +258,36 @@
   .trend-legend-label{color:var(--ink-soft);}
   .trend-legend-value{font-weight:700;font-family:var(--font-mono);}
 
+  /* ---------- RANKING DE ESTOQUE POR GESTOR (barras horizontais) ---------- */
+  .estoque-rank-list{display:flex;flex-direction:column;gap:10px;}
+  .estoque-rank-row{
+    display:grid;grid-template-columns:150px 1fr;align-items:center;gap:12px;
+  }
+  .estoque-rank-name{
+    font-size:12px;font-weight:700;color:var(--navy-900);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .estoque-rank-track{
+    position:relative;height:14px;background:var(--navy-50);border-radius:7px;overflow:visible;
+  }
+  .estoque-rank-fill{
+    position:absolute;left:0;top:0;height:100%;border-radius:7px;
+    transition:width .2s ease;
+  }
+  .estoque-rank-label{
+    position:absolute;top:50%;transform:translate(8px,-50%);
+    font-family:var(--font-mono);font-weight:700;font-size:11.5px;
+    white-space:nowrap;
+  }
+  .estoque-rank-axis{
+    display:flex;margin-top:4px;
+  }
+  .estoque-rank-axis span{
+    flex:1;font-size:10px;color:var(--ink-soft);font-family:var(--font-mono);
+  }
+  .estoque-rank-axis span:first-child{margin-left:150px;text-align:left;flex:0 0 auto;}
+  .estoque-rank-axis span:not(:first-child){text-align:right;}
+
 
   /* ---------- ANÁLISE GERAL DE LOJAS (cards) ---------- */
   .analise-grid{grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));}
@@ -503,7 +533,7 @@
   <div class="header-meta">
     <strong id="lastUpdateLabel">Lojas &amp; Distribuição</strong>
     Meta, ritmo e gap de faturamento por gestor
-    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">17/08/2026 às 17:37</strong></div>
+    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">17/08/2026 às 17:52</strong></div>
   </div>
 </header>
 
@@ -1039,15 +1069,14 @@ function renderDistribuicao(){
     ${kpiCardsHTML(d.total)}
     <div class="section-heading"><h2><span class="dot"></span>Indicadores por gestor</h2><span class="note">clique no seu nome para ver seus indicadores e o dia</span></div>
     ${gestorPickerDistribHTML(d.gestores)}
-    <div class="section-heading"><h2><span class="dot"></span>Desempenho de Estoque por Gestor</h2><span class="note">histórico do mês atual &middot; % venda</span></div>
+    <div class="section-heading"><h2><span class="dot"></span>Desempenho de Estoque por Gestor</h2><span class="note">% de estoque (coluna E) por gestor</span></div>
     <div class="table-card trend-card">
-      <div class="trend-body" id="estoqueTrendBody"><div class="kpi-trend-loading">Carregando histórico&hellip;</div></div>
+      ${estoqueRankingHTML(d.gestores)}
     </div>
     <div class="section-heading"><h2><span class="dot"></span>Realizado vs. meta</h2></div>
     ${chartHTML(d.gestores, 'nome')}
   `;
   renderFaturamentoTrendChart();
-  renderEstoqueTrendChart();
 }
 
 let currentView = 'lojas';
@@ -1548,52 +1577,41 @@ async function renderMarginTrendChart(){
   body.innerHTML = multiLineTrendSvgHTML(series, {height:150});
 }
 
-const trendCacheDistribGestores = {};
-async function loadDistribGestoresForDate(iso, arquivo){
-  if(trendCacheDistribGestores[iso]) return trendCacheDistribGestores[iso];
-  const res = await fetch(arquivo, {cache:'no-store'});
-  const buf = await res.arrayBuffer();
-  const workbook = XLSX.read(new Uint8Array(buf), {type:'array'});
-  const sh = workbook.Sheets['PAD - DISTRIBUIÇÃO'];
-  if(!sh) return null;
-  const rows = XLSX.utils.sheet_to_json(sh, {header:1, defval:null, raw:true});
-  const distribuicao = parseDistribSheet(rows);
-  trendCacheDistribGestores[iso] = distribuicao.gestores;
-  return distribuicao.gestores;
+/* Desempenho de Estoque por Gestor (Distribuição) — usa só a coluna E
+   (pct_venda) da leitura atual, sem histórico. Gestores no eixo Y (uma
+   linha/barra por gestor), percentual no eixo X (0 até um teto arredondado),
+   com o rótulo do valor na ponta de cada linha, colorido pela faixa. */
+function niceAxisMax(maxFrac){
+  const maxPct = Math.max(maxFrac*100, 10);
+  const rounded = Math.ceil(maxPct/10)*10;
+  return Math.min(1.5, (rounded + 10)/100); // sempre com uma folga acima do maior valor
 }
 
-async function renderEstoqueTrendChart(){
-  const body = document.getElementById('estoqueTrendBody');
-  if(!body) return;
-  if(!AVAILABLE_DATES || AVAILABLE_DATES.length === 0){
-    body.innerHTML = '<div class="kpi-trend-empty">Histórico não disponível (abra pelo link hospedado).</div>';
-    return;
-  }
-  const refEntry = AVAILABLE_DATES[CURRENT_DATE_IDX] || AVAILABLE_DATES[AVAILABLE_DATES.length-1];
-  const ym = refEntry.data.slice(0,7);
-  const monthDates = AVAILABLE_DATES.filter(d => d.data.startsWith(ym));
-  if(monthDates.length === 0){ body.innerHTML = ''; return; }
+function estoqueRankingHTML(gestores){
+  const rows = gestores.slice().sort((a,b) => (b.pct_venda||0) - (a.pct_venda||0));
+  const maxFrac = Math.max(...rows.map(g => g.pct_venda||0), 0.1);
+  const axisMax = niceAxisMax(maxFrac);
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => axisMax*f);
 
-  const perGestor = {};
-  for(const d of monthDates){
-    try{
-      const gestores = await loadDistribGestoresForDate(d.data, d.arquivo);
-      if(!gestores) continue;
-      gestores.forEach(g => {
-        if(!perGestor[g.nome]) perGestor[g.nome] = [];
-        perGestor[g.nome].push({data: d.data, value: g.pct_venda});
-      });
-    }catch(e){ console.warn('Estoque trend: falhou', d.data, e); }
-  }
-  if(!body.isConnected) return;
-  const series = Object.keys(perGestor).map(nome => {
-    const points = perGestor[nome];
-    const last = points[points.length-1];
-    const color = pctTierColor(last ? last.value : null);
-    return { label: nome, color, points };
-  });
-  if(series.length === 0){ body.innerHTML = '<div class="kpi-trend-empty">Sem dados no histórico deste mês.</div>'; return; }
-  body.innerHTML = multiLineTrendSvgHTML(series, {height:210, showPointLabels:true});
+  return `
+    <div class="estoque-rank-list">
+      ${rows.map(g => {
+        const pct = g.pct_venda||0;
+        const color = pctTierColor(pct);
+        const w = clamp01(pct/axisMax)*100;
+        return `<div class="estoque-rank-row">
+          <div class="estoque-rank-name">${g.nome}</div>
+          <div class="estoque-rank-track">
+            <div class="estoque-rank-fill" style="width:${w}%;background:${color}"></div>
+            <span class="estoque-rank-label" style="left:${w}%;color:${color}">${fmtPct(pct,0)}</span>
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="estoque-rank-axis">
+        ${ticks.map(t => `<span>${fmtPct(t,0)}</span>`).join('')}
+      </div>
+    </div>
+  `;
 }
 
 loadDateIndex();
