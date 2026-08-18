@@ -288,6 +288,10 @@
   .estoque-rank-axis span:first-child{margin-left:150px;text-align:left;flex:0 0 auto;}
   .estoque-rank-axis span:not(:first-child){text-align:right;}
 
+  /* ---------- OSCILAÇÃO DA MARGEM ENTRE AS LOJAS (barra + linha, por gestor) ---------- */
+  .margin-barline-card{padding:16px 14px 10px;}
+  .margin-barline-svg{width:100%;height:190px;display:block;}
+
 
   /* ---------- ANÁLISE GERAL DE LOJAS (cards) ---------- */
   .analise-grid{grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));}
@@ -533,7 +537,7 @@
   <div class="header-meta">
     <strong id="lastUpdateLabel">Lojas &amp; Distribuição</strong>
     Meta, ritmo e gap de faturamento por gestor
-    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">17/08/2026 às 17:52</strong></div>
+    <div class="last-update-info">Última atualização: <strong id="lastUpdateDateTime">18/08/2026 às 11:52</strong></div>
   </div>
 </header>
 
@@ -909,6 +913,10 @@ function gestorDetailHTML(g){
     ${gestorIndicatorsTableHTML(g.lojas)}
     <div class="section-heading detail-sub"><h2><span class="dot"></span>Indicadores de Margem</h2></div>
     ${marginIndicatorsTableHTML(g.lojas)}
+    <div class="section-heading detail-sub"><h2><span class="dot"></span>Oscilação da Margem entre as Lojas</h2></div>
+    <div class="table-card margin-barline-card">
+      ${marginBarLineSvgHTML(g.lojas)}
+    </div>
     <div class="section-heading detail-sub"><h2><span class="dot"></span>Atingimento da Meta do Dia</h2></div>
     ${dayGoalPerLojaHTML(g.lojas)}
   `;
@@ -956,12 +964,7 @@ function renderLojas(){
     ${analiseGeralLojasHTML(d.bandeiras, d.total)}
     <div class="section-heading"><h2><span class="dot"></span>Indicadores por gestor</h2><span class="note">clique no seu nome para ver suas informações</span></div>
     ${gestorPickerHTML(d.gestores)}
-    <div class="section-heading"><h2><span class="dot"></span>Desempenho de Margem por Loja</h2><span class="note">histórico do mês atual &middot; % margem por loja</span></div>
-    <div class="table-card trend-card">
-      <div class="trend-body" id="marginTrendBody"><div class="kpi-trend-loading">Carregando histórico&hellip;</div></div>
-    </div>
   `;
-  renderMarginTrendChart();
 }
 
 /* Indicadores Dia — aba PAD DISTRIBUIÇÃO, colunas V (meta dia) e W (realizado dia) */
@@ -1532,49 +1535,67 @@ function multiLineTrendSvgHTML(series, opts){
   `;
 }
 
-const trendCacheLojasBandeiras = {};
-async function loadLojasBandeirasForDate(iso, arquivo){
-  if(trendCacheLojasBandeiras[iso]) return trendCacheLojasBandeiras[iso];
-  const res = await fetch(arquivo, {cache:'no-store'});
-  const buf = await res.arrayBuffer();
-  const workbook = XLSX.read(new Uint8Array(buf), {type:'array'});
-  const sh = workbook.Sheets['PAD - LOJAS'];
-  if(!sh) return null;
-  const rows = XLSX.utils.sheet_to_json(sh, {header:1, defval:null, raw:true});
-  const lojas = parseLojasSheet(rows);
-  trendCacheLojasBandeiras[iso] = lojas.bandeiras;
-  return lojas.bandeiras;
+/* Oscilação da Margem entre as Lojas — dentro do painel do gestor selecionado.
+   Barras verticais (uma por loja: CEASA, CASA AMARELA, IMBIRIBEIRA, LOJÃO)
+   com o % de margem (coluna Q) daquele gestor, mais uma linha conectando os
+   pontos para evidenciar a oscilação entre as lojas. Suporta valores
+   negativos (barra desce a partir do zero). */
+function marginTierColor(pct){
+  if(pct===null || pct===undefined || isNaN(pct)) return 'var(--ink-soft)';
+  if(pct >= 1) return 'var(--green-600)';
+  if(pct >= 0.9) return 'var(--amber-600)';
+  return 'var(--red-600)';
 }
 
-async function renderMarginTrendChart(){
-  const body = document.getElementById('marginTrendBody');
-  if(!body) return;
-  if(!AVAILABLE_DATES || AVAILABLE_DATES.length === 0){
-    body.innerHTML = '<div class="kpi-trend-empty">Histórico não disponível (abra pelo link hospedado).</div>';
-    return;
-  }
-  const refEntry = AVAILABLE_DATES[CURRENT_DATE_IDX] || AVAILABLE_DATES[AVAILABLE_DATES.length-1];
-  const ym = refEntry.data.slice(0,7);
-  const monthDates = AVAILABLE_DATES.filter(d => d.data.startsWith(ym));
-  if(monthDates.length === 0){ body.innerHTML = ''; return; }
+function marginBarLineSvgHTML(lojas){
+  const W = 320, H = 190, PAD = 30;
+  const vals = lojas.map(l => (l.mb_pct||0)*100);
+  const maxV = Math.max(...vals, 100, 0);
+  const minV = Math.min(...vals, 0);
+  const range = (maxV - minV) || 1;
+  const n = lojas.length || 1;
+  const slotW = (W - 2*PAD) / n;
+  const barW = Math.min(38, slotW*0.5);
+  const yFor = (v) => H - PAD - ((v - minV)/range) * (H - 2*PAD - 14) - 14;
+  const zeroY = yFor(0);
 
-  const perBandeira = {};
-  for(const d of monthDates){
-    try{
-      const bandeiras = await loadLojasBandeirasForDate(d.data, d.arquivo);
-      if(!bandeiras) continue;
-      bandeiras.forEach(b => {
-        if(!perBandeira[b.label]) perBandeira[b.label] = [];
-        perBandeira[b.label].push({data: d.data, value: b.mb_pct});
-      });
-    }catch(e){ console.warn('Margem trend: falhou', d.data, e); }
-  }
-  if(!body.isConnected) return;
-  const palette = ['var(--navy-700)','var(--red-600)','var(--navy-900)','var(--amber-600)'];
-  const labels = Object.keys(perBandeira);
-  const series = labels.map((label,i) => ({ label, color: palette[i % palette.length], points: perBandeira[label] }));
-  if(series.length === 0){ body.innerHTML = '<div class="kpi-trend-empty">Sem dados no histórico deste mês.</div>'; return; }
-  body.innerHTML = multiLineTrendSvgHTML(series, {height:150});
+  const barsHtml = lojas.map((l,i) => {
+    const v = (l.mb_pct||0)*100;
+    const cx = PAD + slotW*i + slotW/2;
+    const y = yFor(v);
+    const top = Math.min(y, zeroY);
+    const h = Math.max(Math.abs(y - zeroY), 1);
+    const color = marginTierColor(l.mb_pct);
+    return `<rect x="${(cx-barW/2).toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${color}" opacity="0.82"/>`;
+  }).join('');
+
+  const points = lojas.map((l,i) => [PAD + slotW*i + slotW/2, yFor((l.mb_pct||0)*100)]);
+  const linePath = points.length ? smoothPathD(points) : '';
+  const dotsHtml = points.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.2" fill="var(--navy-900)" stroke="#fff" stroke-width="1.4"/>`).join('');
+
+  const labelsHtml = lojas.map((l,i) => {
+    const v = (l.mb_pct||0)*100;
+    const [cx,y] = points[i];
+    const ly = v >= 0 ? y - 9 : y + 15;
+    const color = marginTierColor(l.mb_pct);
+    return `<text x="${cx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="10.5" font-weight="700" text-anchor="middle" fill="${color}" font-family="var(--font-mono)">${fmtPct(l.mb_pct,0)}</text>`;
+  }).join('');
+
+  const xLabelsHtml = lojas.map((l,i) => {
+    const cx = PAD + slotW*i + slotW/2;
+    return `<text x="${cx.toFixed(1)}" y="${H-6}" font-size="9.5" text-anchor="middle" fill="var(--ink-soft)">${l.loja}</text>`;
+  }).join('');
+
+  const zeroLineHtml = `<line x1="${PAD-4}" y1="${zeroY.toFixed(1)}" x2="${W-PAD+4}" y2="${zeroY.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" class="margin-barline-svg" preserveAspectRatio="xMidYMid meet">
+    ${zeroLineHtml}
+    ${barsHtml}
+    <path d="${linePath}" fill="none" stroke="var(--navy-900)" stroke-width="1.6" stroke-dasharray="3 3" opacity="0.7"/>
+    ${dotsHtml}
+    ${labelsHtml}
+    ${xLabelsHtml}
+  </svg>`;
 }
 
 /* Desempenho de Estoque por Gestor (Distribuição) — usa só a coluna E
