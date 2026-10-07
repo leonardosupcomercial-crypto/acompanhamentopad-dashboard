@@ -1,20 +1,6 @@
 {
      "arquivos": [
-          { "data": "2026-09-03", "arquivo": "dados/2026-09-03.xlsx" },
-          { "data": "2026-09-04", "arquivo": "dados/2026-09-04.xlsx" },
-          { "data": "2026-09-08", "arquivo": "dados/2026-09-08.xlsx" },
-          { "data": "2026-09-09", "arquivo": "dados/2026-09-09.xlsx" },
-          { "data": "2026-09-10", "arquivo": "dados/2026-09-10.xlsx" },
-          { "data": "2026-09-11", "arquivo": "dados/2026-09-11.xlsx" },
-          { "data": "2026-09-14", "arquivo": "dados/2026-09-14.xlsx" },
-          { "data": "2026-09-15", "arquivo": "dados/2026-09-15.xlsx" },
-          { "data": "2026-09-16", "arquivo": "dados/2026-09-16.xlsx" },
-          { "data": "2026-09-17", "arquivo": "dados/2026-09-17.xlsx" },
-          { "data": "2026-09-21", "arquivo": "dados/2026-09-21.xlsx" },
-          { "data": "2026-09-22", "arquivo": "dados/2026-09-22.xlsx" },
-          { "data": "2026-09-23", "arquivo": "dados/2026-09-23.xlsx" },
-          { "data": "2026-09-24", "arquivo": "dados/2026-09-24.xlsx" },
-          { "data": "2026-09-28", "arquivo": "dados/2026-09-28.xlsx" },
-          { "data": "2026-09-29", "arquivo": "dados/2026-09-29.xlsx" }
+          { "data": "2026-10-05", "arquivo": "dados/2026-10-05.xlsx" },
+          { "data": "2026-10-07", "arquivo": "dados/2026-10-07.xlsx" }
      ]
    }
