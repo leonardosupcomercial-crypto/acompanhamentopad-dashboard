@@ -1,9 +1,5 @@
 {
      "arquivos": [
-          { "data": "2026-10-05", "arquivo": "dados/2026-10-05.xlsx" },
-          { "data": "2026-10-08", "arquivo": "dados/2026-10-08.xlsx" },
-          { "data": "2026-10-09", "arquivo": "dados/2026-10-09.xlsx" },
-          { "data": "2026-10-13", "arquivo": "dados/2026-10-13.xlsx" },
-          { "data": "2026-10-14", "arquivo": "dados/2026-10-14.xlsx" }
+          { "data": "2026-10-05", "arquivo": "dados/2026-10-05.xlsx" }
      ]
    }
