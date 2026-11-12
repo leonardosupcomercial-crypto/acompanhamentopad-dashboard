@@ -3,7 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard de Acompanhamento PAD - Agosto / 2026</title>
+<title>Painel de Acompanhamento PAD · KarneKeijo</title>
+<meta name="description" content="Acompanhamento diário de faturamento, margem e metas por gestor — PAD Lojas e Distribuição.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Painel de Acompanhamento PAD · KarneKeijo">
+<meta property="og:description" content="Acompanhamento diário de faturamento, margem e metas por gestor — PAD Lojas e Distribuição.">
+<meta property="og:locale" content="pt_BR">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1367,6 +1372,7 @@ async function loadDateFile(i){
     handleWorkbook(workbook);
     renderDateSelector();
     document.getElementById('titleMonth').textContent = fmtMesAno(entry.data);
+    document.title = 'Painel de Acompanhamento PAD · ' + fmtMesAno(entry.data);
     const lastEntry = AVAILABLE_DATES[AVAILABLE_DATES.length-1];
     document.getElementById('lastUpdateDateTime').textContent = fmtDiaFull(lastEntry.data);
   }catch(e){
