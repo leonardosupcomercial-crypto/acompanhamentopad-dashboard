@@ -611,6 +611,12 @@ const fmtBRLfull = (v) => { // valor cheio, sem abreviação — igual ao que es
   if(v===null || v===undefined || isNaN(v)) return '—';
   return v.toLocaleString('pt-BR',{maximumFractionDigits:0});
 };
+const fmtPctExact = (v) => { // % com 2 casas decimais, CORTADAS (sem arredondar): 101,6671 -> 101,66
+  if(v===null || v===undefined || isNaN(v)) return '—';
+  const p = v*100;
+  const cortado = Math.sign(p) * Math.floor(Math.abs(p)*100 + 1e-9) / 100; // 1e-9 evita erro de ponto flutuante (ex.: 57 virar 56,99)
+  return cortado.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '%';
+};
 const fmtPct = (v,d=1) => {
   if(v===null || v===undefined || isNaN(v)) return '—';
   return (v*100).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d})+'%';
@@ -652,13 +658,19 @@ function gestorAlertHTML(nome, checks){
   const chosen = red || yellow || valid[0];
   const level = red ? 'red' : (yellow ? 'yellow' : 'green');
 
+  // concordância: margem / meta do dia = feminino; faturamento / ritmo = masculino
+  const fem = /^(margem|meta)/i.test(chosen.label);
+  const poss = fem ? 'sua' : 'seu';
+  const possCap = fem ? 'Sua' : 'Seu';
+  const aPoss = fem ? 'à sua' : 'ao seu';
+
   let msg;
   if(level==='red'){
-    msg = `Você precisa se atentar à sua ${chosen.label}, que ainda está em ${fmtPct(chosen.value)} da meta.`;
+    msg = `Você precisa se atentar ${aPoss} ${chosen.label}, que ainda está em ${fmtPct(chosen.value)} da meta.`;
   } else if(level==='yellow'){
-    msg = `Você está quase lá — sua ${chosen.label} está em ${fmtPct(chosen.value)} da meta. Falta pouco para bater 100%.`;
+    msg = `Você está quase lá — ${poss} ${chosen.label} está em ${fmtPct(chosen.value)} da meta. Falta pouco para bater 100%.`;
   } else {
-    msg = `Sua ${chosen.label} está em ${fmtPct(chosen.value)} da meta — dentro do esperado.`;
+    msg = `Parabéns! ${possCap} ${chosen.label} está em ${fmtPct(chosen.value)} da meta — continue assim.`;
   }
   const icon = level==='red' ? '⚠️' : (level==='yellow' ? '🟡' : '✅');
   return `<div class="gestor-alert gestor-alert-${level}">
@@ -778,51 +790,43 @@ function analiseGeralLojasHTML(bandeiras, total){
   </div>`;
 }
 
-function chartHTML(rows, nameKey){
-  const maxVal = Math.max(...rows.map(r=>Math.max(r.fat_meta||0, r.fat_meta_prop||0, r.fat_real||0)), 1);
-  return `<div class="table-card">
-    <div class="section-heading" style="padding:16px 18px 0;"><h2><span class="dot"></span>Realizado vs. Meta Proporcional por gestor</h2><span class="note">clique no gestor &middot; barra = realizado &middot; traços = meta proporcional e meta do mês</span></div>
-    ${rows.map(r=>{
-      const rtm = ritmo(r);
-      const w = clamp01((r.fat_real||0)/maxVal)*100;
-      const mProp = clamp01((r.fat_meta_prop||0)/maxVal)*100;
-      const mMes = clamp01((r.fat_meta||0)/maxVal)*100;
-      const bad = (rtm||0) < 1;
-      return `<details class="gestor-group">
-        <summary class="gestor-group-label">
-          <span class="chev-updown">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </span>
-          <span>${r[nameKey]}</span>
-          <span class="bar-pct-inline" style="color:${bad?'#ffb3ba':'#b6f5cf'}">${fmtPct(rtm)}</span>
-        </summary>
-        <div class="bar-row-v2">
-          <div class="bar-track-wrap">
-            <div class="bar-meta-marker-group" style="left:${mMes}%">
-              <span class="label-name">Meta Mês</span>
-              <span class="label-value">${fmtBRLc(r.fat_meta)}</span>
-              <span class="connector connector-mes"></span>
-            </div>
-            <div class="bar-meta-marker-group" style="left:${mProp}%">
-              <span class="label-value">${fmtBRLc(r.fat_meta_prop)}</span>
-              <span class="connector"></span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill ${bad?'bad':''}" style="width:${w}%"></div>
-              <div class="bar-marker" style="left:${mProp}%"></div>
-              <div class="bar-marker-mes" style="left:${mMes}%"></div>
-            </div>
-          </div>
-          <div class="bar-numbers">
-            <span class="mono num-strong">${fmtBRLc(r.fat_real)}</span>
-            <span class="bar-numbers-sep">realizado &middot; meta proporcional</span>
-            <span class="mono">${fmtBRLc(r.fat_meta_prop)}</span>
-            <span class="bar-numbers-sep">&middot; meta mês</span>
-            <span class="mono">${fmtBRLc(r.fat_meta)}</span>
-          </div>
-        </div>
-      </details>`;
-    }).join('')}
+/* Realizado vs. Meta Proporcional — um gestor (aparece no painel do gestor)
+   barra = realizado | traço escuro = meta proporcional | traço vermelho = meta do mês */
+function realizadoVsMetaBlockHTML(r){
+  const maxVal = Math.max(r.fat_meta||0, r.fat_meta_prop||0, r.fat_real||0, 1);
+  const rtm = ritmo(r);
+  const w = clamp01((r.fat_real||0)/maxVal)*100;
+  const mProp = clamp01((r.fat_meta_prop||0)/maxVal)*100;
+  const mMes = clamp01((r.fat_meta||0)/maxVal)*100;
+  const bad = (rtm||0) < 1;
+  return `<div class="bar-row-v2">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px;">
+      <span style="font-size:12px;font-weight:700;color:var(--navy-900);">Realizado vs. Meta Proporcional</span>
+      <span class="bar-pct" style="font-size:14px;color:${bad?'var(--red-600)':'var(--green-600)'}">${fmtPct(rtm)}</span>
+    </div>
+    <div class="bar-track-wrap" style="margin:0 40px;">
+      <div class="bar-meta-marker-group" style="left:${mMes}%">
+        <span class="label-name">Meta Mês</span>
+        <span class="label-value">${fmtBRLfull(r.fat_meta)}</span>
+        <span class="connector connector-mes"></span>
+      </div>
+      <div class="bar-meta-marker-group" style="left:${mProp}%">
+        <span class="label-value">${fmtBRLfull(r.fat_meta_prop)}</span>
+        <span class="connector"></span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill ${bad?'bad':''}" style="width:${w}%"></div>
+        <div class="bar-marker" style="left:${mProp}%"></div>
+        <div class="bar-marker-mes" style="left:${mMes}%"></div>
+      </div>
+    </div>
+    <div class="bar-numbers">
+      <span class="mono num-strong">${fmtBRLfull(r.fat_real)}</span>
+      <span class="bar-numbers-sep">realizado &middot; meta proporcional</span>
+      <span class="mono">${fmtBRLfull(r.fat_meta_prop)}</span>
+      <span class="bar-numbers-sep">&middot; meta mês</span>
+      <span class="mono">${fmtBRLfull(r.fat_meta)}</span>
+    </div>
   </div>`;
 }
 
@@ -858,7 +862,8 @@ function gestorIndicatorsTableHTML(lojas){
   </div>`;
 }
 
-function dayGoalPerLojaHTML(lojas){
+function dayGoalPerLojaHTML(lojas, fmt){
+  fmt = fmt || fmtBRLc;
   const maxVal = Math.max(...lojas.map(l=>Math.max(l.day_meta||0, l.day_real||0)), 1);
   return `<div class="table-card">
     ${lojas.map(l=>{
@@ -873,9 +878,9 @@ function dayGoalPerLojaHTML(lojas){
           <div class="day-goal-marker" style="left:${m}%"></div>
         </div>
         <div class="day-goal-numbers">
-          <span class="mono num-strong">${fmtBRLc(real)}</span>
+          <span class="mono num-strong">${fmt(real)}</span>
           <span class="day-goal-sep">de</span>
-          <span class="mono">${fmtBRLc(meta)}</span>
+          <span class="mono">${fmt(meta)}</span>
           <span class="mono num-strong day-goal-pct" style="color:${bad?'var(--red-600)':'var(--green-600)'}">${fmtPct(pct)}</span>
         </div>
       </div>`;
@@ -972,30 +977,6 @@ function renderLojas(){
   `;
 }
 
-/* Indicadores Dia — aba PAD DISTRIBUIÇÃO, colunas V (meta dia) e W (realizado dia) */
-function dayIndicatorBlockHTML(g){
-  const meta = g.day_meta, real = g.day_real, pct = meta? real/meta : null;
-  const bad = (pct||0) < 1;
-  const maxVal = Math.max(meta||0, real||0, 1);
-  const wReal = clamp01((real||0)/maxVal)*100;
-  const wMeta = clamp01((meta||0)/maxVal)*100;
-  return `
-    <div class="day-goal-loja-block">
-      <div class="day-goal-loja-name">Faturamento do Dia — Meta &times; Realizado</div>
-      <div class="day-goal-track">
-        <div class="day-goal-fill ${bad?'bad':''}" style="width:${wReal}%"></div>
-        <div class="day-goal-marker" style="left:${wMeta}%"></div>
-      </div>
-      <div class="day-goal-numbers">
-        <span class="mono num-strong">${fmtBRLc(real)}</span>
-        <span class="day-goal-sep">de</span>
-        <span class="mono">${fmtBRLc(meta)}</span>
-        <span class="mono num-strong day-goal-pct" style="color:${bad?'var(--red-600)':'var(--green-600)'}">${fmtPct(pct)}</span>
-      </div>
-    </div>
-  `;
-}
-
 /* Painel individual por gestor (Distribuição) — mesma UX de caixas de seleção
    usada na aba PAD Lojas: clica no nome e aparecem os indicadores + o dia dele. */
 /* Indicadores de Faturamento — aba PAD DISTRIBUIÇÃO
@@ -1003,6 +984,15 @@ function dayIndicatorBlockHTML(g){
    Meta Prop. = coluna H (fat_meta_prop)
    Realizado = coluna I (fat_real)
    %         = coluna J (fat_pct)             */
+/* Cor do % de Indicadores de Faturamento (Distribuição):
+   abaixo de 70% = vermelho | de 70% até menos de 100% = amarelo | 100% ou mais = verde */
+function fatPctTierColor(pct){
+  const p = pct || 0;
+  if(p >= 1) return 'var(--green-600)';
+  if(p >= 0.7) return 'var(--amber-600)';
+  return 'var(--red-600)';
+}
+
 function distribIndicatorsSingleHTML(g){
   return `<div class="table-card">
     <div class="table-head-row grid-distrib-fat">
@@ -1010,10 +1000,10 @@ function distribIndicatorsSingleHTML(g){
     </div>
     <div class="subrow grid-distrib-fat" style="padding:12px 18px;">
       <div style="text-align:left;font-weight:700;color:var(--navy-900);">${g.nome} <span class="cod" style="font-weight:500;color:var(--ink-soft);font-size:11.5px;">${g.cod||''}</span></div>
-      <div class="mono">${fmtBRLc(g.fat_meta)}</div>
-      <div class="mono">${fmtBRLc(g.fat_meta_prop)}</div>
-      <div class="mono num-strong">${fmtBRLc(g.fat_real)}</div>
-      <div class="mono num-strong" style="color:${(g.fat_pct||0)>=1?'var(--green-600)':'var(--red-600)'}">${fmtPct(g.fat_pct)}</div>
+      <div class="mono">${fmtBRLfull(g.fat_meta)}</div>
+      <div class="mono">${fmtBRLfull(g.fat_meta_prop)}</div>
+      <div class="mono num-strong">${fmtBRLfull(g.fat_real)}</div>
+      <div class="mono num-strong" style="color:${fatPctTierColor(g.fat_pct)}">${fmtPctExact(g.fat_pct)}</div>
     </div>
   </div>`;
 }
@@ -1028,10 +1018,12 @@ function distribGestorDetailHTML(g){
   return `
     <div class="gestor-detail-header"><h3>${g.nome}<span class="cod">${g.cod||''}</span></h3></div>
     ${gestorAlertHTML(g.nome, checks)}
+    <div class="section-heading detail-sub"><h2><span class="dot"></span>Realizado vs. Meta</h2></div>
+    <div class="table-card">${realizadoVsMetaBlockHTML(g)}</div>
     <div class="section-heading detail-sub"><h2><span class="dot"></span>Indicadores de Faturamento</h2></div>
     ${distribIndicatorsSingleHTML(g)}
-    <div class="section-heading detail-sub"><h2><span class="dot"></span>Indicadores Dia</h2></div>
-    <div class="table-card">${dayIndicatorBlockHTML(g)}</div>
+    <div class="section-heading detail-sub"><h2><span class="dot"></span>Atingimento da Meta do Dia</h2></div>
+    ${dayGoalPerLojaHTML([{ loja:'Faturamento do dia', day_meta:g.day_meta, day_real:g.day_real, day_pct:(g.day_meta ? g.day_real/g.day_meta : null) }], fmtBRLfull)}
   `;
 }
 
@@ -1041,7 +1033,7 @@ function gestorPickerDistribHTML(gestores){
       ${gestores.map((g,i)=>`<button type="button" class="gestor-chip" id="chip-distrib-${i}" onclick="selectGestorDistrib(${i})">${g.nome}<span class="cod">${g.cod||''}</span></button>`).join('')}
     </div>
     <div id="gestor-detail-panel-distrib" class="gestor-detail-panel">
-      <div class="gestor-detail-empty">Selecione um gestor acima para ver os indicadores e o dia dele.</div>
+      <div class="gestor-detail-empty">Selecione um gestor acima para ver o realizado vs. meta, os indicadores e o dia dele.</div>
     </div>
   `;
 }
@@ -1052,7 +1044,7 @@ function selectGestorDistrib(i){
   if(selectedGestorDistribIdx === i){
     // clicou de novo no mesmo gestor: fecha
     selectedGestorDistribIdx = null;
-    panel.innerHTML = '<div class="gestor-detail-empty">Selecione um gestor acima para ver os indicadores e o dia dele.</div>';
+    panel.innerHTML = '<div class="gestor-detail-empty">Selecione um gestor acima para ver o realizado vs. meta, os indicadores e o dia dele.</div>';
     const chip = document.getElementById('chip-distrib-'+i);
     if(chip) chip.classList.remove('active');
     return;
@@ -1075,14 +1067,12 @@ function renderDistribuicao(){
   root.innerHTML = `
     <div class="section-heading"><h2><span class="dot"></span>PAD Distribuição — visão consolidada (Total Distribuição)</h2><span class="note">${d.gestores.length} gestores</span></div>
     ${kpiCardsHTML(d.total)}
-    <div class="section-heading"><h2><span class="dot"></span>Indicadores por gestor</h2><span class="note">clique no seu nome para ver seus indicadores e o dia</span></div>
+    <div class="section-heading"><h2><span class="dot"></span>Indicadores por gestor</h2><span class="note">clique no seu nome para ver suas informações</span></div>
     ${gestorPickerDistribHTML(d.gestores)}
     <div class="section-heading"><h2><span class="dot"></span>Desempenho de Estoque por Gestor</h2><span class="note">% de estoque (coluna E) por gestor</span></div>
     <div class="table-card trend-card">
       ${estoqueRankingHTML(d.gestores)}
     </div>
-    <div class="section-heading"><h2><span class="dot"></span>Realizado vs. meta</h2></div>
-    ${chartHTML(d.gestores, 'nome')}
   `;
   renderFaturamentoTrendChart();
 }
