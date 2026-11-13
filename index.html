@@ -527,6 +527,23 @@
     .grid-distrib-fat{grid-template-columns:1fr;}
     .table-head-row.grid-distrib-fat > div:not(:first-child){display:none;}
   }
+
+  /* ---------- EXPORTAR PARA EXCEL (final de cada aba) ---------- */
+  .export-card{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 20px;margin:6px 0 30px;
+  }
+  .export-title{font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--navy-900);}
+  .export-sub{font-size:12.5px;color:var(--ink-soft);margin-top:3px;}
+  .export-btn{
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--navy-800);color:#fff;border:none;border-radius:100px;
+    padding:11px 20px;font-family:var(--font-body);font-weight:700;font-size:13px;
+    cursor:pointer;transition:background .15s ease;
+  }
+  .export-btn:hover{background:var(--red-600);}
+  .export-btn svg{width:16px;height:16px;flex:0 0 auto;}
 </style>
 </head>
 <body>
@@ -974,6 +991,7 @@ function renderLojas(){
     ${analiseGeralLojasHTML(d.bandeiras, d.total)}
     <div class="section-heading"><h2><span class="dot"></span>Indicadores por gestor</h2><span class="note">clique no seu nome para ver suas informações</span></div>
     ${gestorPickerHTML(d.gestores)}
+    ${exportCardHTML('lojas')}
   `;
 }
 
@@ -1073,6 +1091,7 @@ function renderDistribuicao(){
     <div class="table-card trend-card">
       ${estoqueRankingHTML(d.gestores)}
     </div>
+    ${exportCardHTML('distribuicao')}
   `;
   renderFaturamentoTrendChart();
 }
@@ -1629,6 +1648,123 @@ function estoqueRankingHTML(gestores){
       </div>
     </div>
   `;
+}
+
+/* =========================================================
+   EXPORTAR PARA EXCEL — final de cada aba
+   Gera o .xlsx no próprio navegador (SheetJS), com os dados do dia
+   que está sendo exibido. Valores guardados como número (sem texto),
+   % como fração com formato de porcentagem e filtro nas colunas.
+   ========================================================= */
+function exportDiaAtual(){
+  const e = AVAILABLE_DATES[CURRENT_DATE_IDX];
+  return e ? e.data : null;
+}
+
+function exportCardHTML(view){
+  const iso = exportDiaAtual();
+  const dia = iso ? fmtDiaChip(iso) : 'dados incluídos neste arquivo';
+  const quais = view === 'lojas' ? 'PAD Lojas' : 'PAD Distribuição';
+  return `<div class="export-card">
+    <div>
+      <div class="export-title">Exportar dados em Excel</div>
+      <div class="export-sub">Baixa a planilha com os dados de ${quais} &middot; dia exibido: <strong>${dia}</strong></div>
+    </div>
+    <button type="button" class="export-btn" onclick="exportarExcel('${view}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Baixar Excel (.xlsx)
+    </button>
+  </div>`;
+}
+
+function xlNum(v){ return (typeof v === 'number' && isFinite(v)) ? v : null; }
+
+function xlSheet(headers, rows){
+  const ws = XLSX.utils.aoa_to_sheet([headers.map(h => h.t)].concat(rows));
+  ws['!cols'] = headers.map(h => ({wch: h.w || 16}));
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:rows.length, c:headers.length-1}}) };
+  rows.forEach((row,ri) => {
+    headers.forEach((h,ci) => {
+      const cell = ws[XLSX.utils.encode_cell({r:ri+1, c:ci})];
+      if(cell && cell.t === 'n') cell.z = (h.k === 'pct') ? '0.00%' : '#,##0.00';
+    });
+  });
+  return ws;
+}
+
+const xlPctDia = (r) => (r.day_meta && typeof r.day_real === 'number') ? r.day_real / r.day_meta : null;
+
+const XL_LOJAS_COLS = [
+  {t:'Meta Faturamento',       k:'money', g:r=>r.fat_meta},
+  {t:'Meta Prop. Faturamento', k:'money', g:r=>r.fat_meta_prop},
+  {t:'Realizado Faturamento',  k:'money', g:r=>r.fat_real},
+  {t:'% Faturamento',          k:'pct',   g:r=>r.fat_pct},
+  {t:'Meta Margem',            k:'money', g:r=>r.mb_meta},
+  {t:'Meta Prop. Margem',      k:'money', g:r=>r.mb_meta_prop},
+  {t:'Real Verba Margem',      k:'money', g:r=>r.mb_real_verba},
+  {t:'Real Total Margem',      k:'money', g:r=>r.mb_real_total},
+  {t:'% Margem',               k:'pct',   g:r=>r.mb_pct},
+  {t:'Meta do Dia',            k:'money', g:r=>r.day_meta},
+  {t:'Realizado do Dia',       k:'money', g:r=>r.day_real},
+  {t:'% Meta do Dia',          k:'pct',   g:xlPctDia},
+];
+
+const XL_DISTRIB_COLS = [
+  {t:'Meta Faturamento',       k:'money', g:r=>r.fat_meta},
+  {t:'Meta Prop. Faturamento', k:'money', g:r=>r.fat_meta_prop},
+  {t:'Realizado Faturamento',  k:'money', g:r=>r.fat_real},
+  {t:'% Faturamento',          k:'pct',   g:r=>r.fat_pct},
+  {t:'Meta do Dia',            k:'money', g:r=>r.day_meta},
+  {t:'Realizado do Dia',       k:'money', g:r=>r.day_real},
+  {t:'% Meta do Dia',          k:'pct',   g:xlPctDia},
+  {t:'Estoque Real',           k:'money', g:r=>r.estoque_real},
+  {t:'% Estoque (% venda)',    k:'pct',   g:r=>r.pct_venda},
+];
+
+function xlValores(cols, r){ return cols.map(c => xlNum(c.g(r))); }
+
+function exportarExcel(view){
+  if(typeof XLSX === 'undefined' || !XLSX.utils){
+    alert('Não foi possível carregar o recurso de Excel. Verifique a conexão com a internet e recarregue a página.');
+    return;
+  }
+  try{
+    const wb = XLSX.utils.book_new();
+    const iso = exportDiaAtual() || new Date().toLocaleDateString('en-CA');
+    let arquivo;
+
+    if(view === 'lojas'){
+      const d = DATA.lojas;
+      const head = (extra) => extra.concat(XL_LOJAS_COLS.map(c => ({t:c.t, k:c.k, w:18})));
+      const T = (t,w) => ({t, k:'txt', w});
+
+      const linhas = [];
+      d.gestores.forEach(g => g.lojas.forEach(l => linhas.push([g.cod||'', g.nome, l.loja].concat(xlValores(XL_LOJAS_COLS, l)))));
+      XLSX.utils.book_append_sheet(wb, xlSheet(head([T('Código',9), T('Gestor',24), T('Loja',16)]), linhas), 'Lojas por Gestor');
+
+      const resumo = d.gestores.map(g => [g.cod||'', g.nome].concat(xlValores(XL_LOJAS_COLS, g.total)));
+      if(d.total) resumo.push(['', 'TOTAL LOJAS'].concat(xlValores(XL_LOJAS_COLS, d.total)));
+      XLSX.utils.book_append_sheet(wb, xlSheet(head([T('Código',9), T('Gestor',24)]), resumo), 'Resumo por Gestor');
+
+      const geral = d.bandeiras.map(b => [b.label].concat(xlValores(XL_LOJAS_COLS, b)));
+      if(d.total) geral.push(['TOTAL LOJAS'].concat(xlValores(XL_LOJAS_COLS, d.total)));
+      XLSX.utils.book_append_sheet(wb, xlSheet(head([T('Loja',16)]), geral), 'Análise Geral de Lojas');
+
+      arquivo = 'PAD_Lojas_' + iso + '.xlsx';
+    } else {
+      const d = DATA.distribuicao;
+      const head = [{t:'Código',k:'txt',w:9}, {t:'Gestor',k:'txt',w:26}].concat(XL_DISTRIB_COLS.map(c => ({t:c.t, k:c.k, w:20})));
+      const linhas = d.gestores.map(g => [g.cod||'', g.nome].concat(xlValores(XL_DISTRIB_COLS, g)));
+      if(d.total) linhas.push(['', 'TOTAL DISTRIBUIÇÃO'].concat(xlValores(XL_DISTRIB_COLS, d.total)));
+      XLSX.utils.book_append_sheet(wb, xlSheet(head, linhas), 'Indicadores por Gestor');
+      arquivo = 'PAD_Distribuicao_' + iso + '.xlsx';
+    }
+
+    XLSX.writeFile(wb, arquivo);
+  }catch(err){
+    console.error('Erro ao exportar para Excel', err);
+    alert('Não consegui gerar o arquivo Excel. Tente recarregar a página.');
+  }
 }
 
 loadDateIndex();
