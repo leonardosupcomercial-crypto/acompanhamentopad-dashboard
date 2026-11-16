@@ -544,6 +544,26 @@
   }
   .export-btn:hover{background:var(--red-600);}
   .export-btn svg{width:16px;height:16px;flex:0 0 auto;}
+
+  /* ---------- TOTAL DO GRUPO (Distribuição) ---------- */
+  .gestor-chip-total{border-color:var(--navy-800);color:var(--navy-800);}
+  .grid-distrib-list{grid-template-columns:1.7fr 1.1fr 1.1fr 1.1fr 1fr;min-width:720px;}
+  .grupo-total-row{background:var(--navy-50);}
+  .rvm-list{display:flex;flex-direction:column;gap:12px;padding:16px 18px 6px;}
+  .rvm-row{display:grid;grid-template-columns:170px 1fr 86px;gap:12px;align-items:center;}
+  .rvm-row.grupo-total-row{padding:8px;margin:2px -8px 0;border-radius:8px;}
+  .rvm-name{font-size:12px;font-weight:700;color:var(--navy-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rvm-track{position:relative;height:12px;background:var(--navy-50);border-radius:6px;}
+  .rvm-row.grupo-total-row .rvm-track{background:#fff;}
+  .rvm-fill{position:absolute;left:0;top:0;height:100%;border-radius:6px;}
+  .rvm-marker{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--navy-900);}
+  .rvm-nums{font-size:10.5px;color:var(--ink-soft);font-family:var(--font-mono);margin-top:5px;white-space:nowrap;}
+  .rvm-pct{font-family:var(--font-mono);font-weight:700;font-size:12.5px;text-align:right;}
+  .rvm-legend{font-size:11px;color:var(--ink-soft);padding:6px 18px 14px;line-height:1.5;}
+  @media (max-width:560px){
+    .rvm-row{grid-template-columns:1fr 78px;}
+    .rvm-name{grid-column:1 / -1;}
+  }
 </style>
 </head>
 <body>
@@ -1045,13 +1065,71 @@ function distribGestorDetailHTML(g){
   `;
 }
 
+/* Total do Grupo (Distribuição) — todos os gestores numa lista só */
+function distribFatListHTML(d){
+  const linha = (nome, cod, r, total) => `<div class="subrow grid-distrib-list ${total?'grupo-total-row':''}" style="padding:12px 18px;">
+      <div style="text-align:left;font-weight:700;color:var(--navy-900);">${nome} <span class="cod" style="font-weight:500;color:var(--ink-soft);font-size:11.5px;">${cod||''}</span></div>
+      <div class="mono">${fmtBRLfull(r.fat_meta)}</div>
+      <div class="mono">${fmtBRLfull(r.fat_meta_prop)}</div>
+      <div class="mono num-strong">${fmtBRLfull(r.fat_real)}</div>
+      <div class="mono num-strong" style="color:${fatPctTierColor(r.fat_pct)}">${fmtPctExact(r.fat_pct)}</div>
+    </div>`;
+  return `<div class="table-card table-scroll">
+    <div class="table-head-row grid-distrib-list">
+      <div>Gestor</div><div>Meta mês</div><div>Meta Prop.</div><div>Realizado</div><div>%</div>
+    </div>
+    ${d.gestores.map(g => linha(g.nome, g.cod, g, false)).join('')}
+    ${d.total ? linha('Total do Grupo', '', d.total, true) : ''}
+  </div>`;
+}
+
+function distribGrupoRvmHTML(d){
+  const rows = d.gestores.map(g => ({nome:g.nome, r:g, total:false}))
+    .concat(d.total ? [{nome:'Total do Grupo', r:d.total, total:true}] : []);
+  const rts = rows.map(x => ritmo(x.r)).filter(v => v!==null && isFinite(v));
+  // escala comum a todas as linhas, para dar para comparar os gestores; o traço marca 100% da meta proporcional
+  const axisMax = Math.min(1.5, Math.max(1.2, Math.max(...rts, 0) + 0.1));
+  const marker = (1/axisMax)*100;
+  return `<div class="rvm-list">
+    ${rows.map(x => {
+      const rt = ritmo(x.r);
+      const tem = rt!==null && isFinite(rt);
+      const w = tem ? clamp01(rt/axisMax)*100 : 0;
+      const cor = tem ? fatPctTierColor(rt) : 'var(--ink-soft)';
+      return `<div class="rvm-row ${x.total?'grupo-total-row':''}">
+        <div class="rvm-name">${x.nome}</div>
+        <div>
+          <div class="rvm-track">
+            <div class="rvm-fill" style="width:${w}%;background:${cor}"></div>
+            <div class="rvm-marker" style="left:${marker}%"></div>
+          </div>
+          <div class="rvm-nums">${fmtBRLfull(x.r.fat_real)} de ${fmtBRLfull(x.r.fat_meta_prop)}</div>
+        </div>
+        <div class="rvm-pct" style="color:${cor}">${fmtPctExact(rt)}</div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div class="rvm-legend">Barra = realizado como % da meta proporcional &middot; traço escuro = 100% da meta proporcional &middot; vermelho abaixo de 70%, amarelo de 70% a menos de 100%, verde a partir de 100%.</div>`;
+}
+
+function distribTotalGrupoHTML(d){
+  return `
+    <div class="gestor-detail-header"><h3>Total do Grupo<span class="cod">${d.gestores.length} gestores</span></h3></div>
+    <div class="section-heading detail-sub"><h2><span class="dot"></span>Indicadores de Faturamento</h2></div>
+    ${distribFatListHTML(d)}
+    <div class="section-heading detail-sub"><h2><span class="dot"></span>Realizado vs. Meta Proporcional</h2></div>
+    <div class="table-card">${distribGrupoRvmHTML(d)}</div>
+  `;
+}
+
 function gestorPickerDistribHTML(gestores){
   return `
     <div class="gestor-picker">
+      <button type="button" class="gestor-chip gestor-chip-total" id="chip-distrib-total" onclick="selectGestorDistrib('total')">Total do Grupo</button>
       ${gestores.map((g,i)=>`<button type="button" class="gestor-chip" id="chip-distrib-${i}" onclick="selectGestorDistrib(${i})">${g.nome}<span class="cod">${g.cod||''}</span></button>`).join('')}
     </div>
     <div id="gestor-detail-panel-distrib" class="gestor-detail-panel">
-      <div class="gestor-detail-empty">Selecione um gestor acima para ver o realizado vs. meta, os indicadores e o dia dele.</div>
+      <div class="gestor-detail-empty">Selecione um gestor (ou o Total do Grupo) acima para ver o realizado vs. meta, os indicadores e o dia.</div>
     </div>
   `;
 }
@@ -1060,21 +1138,27 @@ let selectedGestorDistribIdx = null;
 function selectGestorDistrib(i){
   const panel = document.getElementById('gestor-detail-panel-distrib');
   if(selectedGestorDistribIdx === i){
-    // clicou de novo no mesmo gestor: fecha
+    // clicou de novo no mesmo botão: fecha
     selectedGestorDistribIdx = null;
-    panel.innerHTML = '<div class="gestor-detail-empty">Selecione um gestor acima para ver o realizado vs. meta, os indicadores e o dia dele.</div>';
+    panel.innerHTML = '<div class="gestor-detail-empty">Selecione um gestor (ou o Total do Grupo) acima para ver o realizado vs. meta, os indicadores e o dia.</div>';
     const chip = document.getElementById('chip-distrib-'+i);
     if(chip) chip.classList.remove('active');
     return;
   }
-  const g = DATA.distribuicao.gestores[i];
-  if(!g) return;
-  selectedGestorDistribIdx = i;
-  panel.innerHTML = distribGestorDetailHTML(g);
-  for(let idx=0; idx<DATA.distribuicao.gestores.length; idx++){
-    const chip = document.getElementById('chip-distrib-'+idx);
-    if(chip) chip.classList.toggle('active', idx===i);
+  let html;
+  if(i === 'total'){
+    html = distribTotalGrupoHTML(DATA.distribuicao);
+  } else {
+    const g = DATA.distribuicao.gestores[i];
+    if(!g) return;
+    html = distribGestorDetailHTML(g);
   }
+  selectedGestorDistribIdx = i;
+  panel.innerHTML = html;
+  ['total'].concat(DATA.distribuicao.gestores.map((_,k)=>k)).forEach(k => {
+    const chip = document.getElementById('chip-distrib-'+k);
+    if(chip) chip.classList.toggle('active', k===i);
+  });
   panel.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
@@ -1085,7 +1169,7 @@ function renderDistribuicao(){
   root.innerHTML = `
     <div class="section-heading"><h2><span class="dot"></span>PAD Distribuição — visão consolidada (Total Distribuição)</h2><span class="note">${d.gestores.length} gestores</span></div>
     ${kpiCardsHTML(d.total)}
-    <div class="section-heading"><h2><span class="dot"></span>Indicadores por gestor</h2><span class="note">clique no seu nome para ver suas informações</span></div>
+    <div class="section-heading"><h2><span class="dot"></span>Indicadores por gestor</h2><span class="note">clique no seu nome para ver suas informações, ou em "Total do Grupo" para ver todos</span></div>
     ${gestorPickerDistribHTML(d.gestores)}
     <div class="section-heading"><h2><span class="dot"></span>Desempenho de Estoque por Gestor</h2><span class="note">% de estoque (coluna E) por gestor</span></div>
     <div class="table-card trend-card">
