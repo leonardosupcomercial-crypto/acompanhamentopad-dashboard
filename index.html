@@ -658,6 +658,11 @@ const fmtPct = (v,d=1) => {
   if(v===null || v===undefined || isNaN(v)) return '—';
   return (v*100).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d})+'%';
 };
+const corPct = (v) => { // >=100% verde | 86% a 99,9% amarelo | <86% vermelho (usa o valor arredondado como exibido, 1 casa)
+  if(v===null || v===undefined || isNaN(v)) return 'var(--ink-soft)';
+  const p = Math.round(v*1000)/10;
+  return p >= 100 ? 'var(--green-600)' : (p >= 86 ? 'var(--amber-600)' : 'var(--red-600)');
+};
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const fmtNum = (v,d=2) => {
   if(v===null || v===undefined || isNaN(v)) return '—';
@@ -880,10 +885,10 @@ function metricCellsLojasHTML(r){
     <div class="mono">${fmtBRLc(r.fat_meta)}</div>
     <div class="mono">${fmtBRLc(r.fat_meta_prop)}</div>
     <div class="mono num-strong">${fmtBRLc(r.fat_real)}</div>
-    <div class="mono num-strong" style="color:${(r.fat_pct||0)>=1?'var(--green-600)':'var(--red-600)'}">${fmtPct(r.fat_pct)}</div>
+    <div class="mono num-strong" style="color:${corPct(r.fat_pct)}">${fmtPct(r.fat_pct)}</div>
     <div class="mono">${fmtBRLc(r.mb_meta)}</div>
     <div class="mono">${fmtBRLc(r.mb_meta_prop)}</div>
-    <div class="mono num-strong" style="color:${(r.mb_pct||0)>=1?'var(--green-600)':'var(--red-600)'}">${fmtPct(r.mb_pct)}</div>
+    <div class="mono num-strong" style="color:${corPct(r.mb_pct)}">${fmtPct(r.mb_pct)}</div>
   `;
 }
 
@@ -942,7 +947,7 @@ function marginIndicatorsTableHTML(lojas){
       <div class="mono">${fmtBRLfull(l.mb_meta_prop)}</div>
       <div class="mono">${fmtBRLfull(l.mb_real_verba)}</div>
       <div class="mono num-strong">${fmtBRLfull(l.mb_real_total)}</div>
-      <div class="mono num-strong" style="color:${(l.mb_pct||0)>=1?'var(--green-600)':'var(--red-600)'}">${fmtPct(l.mb_pct)}</div>
+      <div class="mono num-strong" style="color:${corPct(l.mb_pct)}">${fmtPct(l.mb_pct)}</div>
     </div>`).join('')}
   </div>`;
 }
